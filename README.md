@@ -13,6 +13,9 @@ This tool uses LaTeX to generate a PDF file where each page is the exact print s
 - Per-image scale settings
 - Better look and feel
 
+![UI window](./docs/window2.jpg)
+
+
 ## Requirements
 
 - pdflatex (included in [standard LaTeX distributions](https://www.latex-project.org/get/))
