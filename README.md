@@ -4,26 +4,34 @@ This tool is designed to let users create PDF files consisting of full-page imag
 
 ## Requirements
 
-- pdflatex
+- pdflatex (included in [standard LaTeX distributions](https://www.latex-project.org/get/))
 - Python >= 3.11
 
 ## Setup
 
-1. Install python requirements
+1. Set up virtual environment
 
+```sh
+python -m venv venv
+```
+
+2. Activate virutal environment
+```sh
+# for cmd
+venv\Scripts\activate.bat
+# for powershell
+venv\Scripts\Activate.ps1
+# for linux/mac
+source venv/bin/activate
+```
+
+3. Install requirements
 ```sh
 pip install -r requirements.txt
 ```
 
-2. Execute python script in terminal
+4. Execute main python script
 
 ```sh
-python images-to-pdf.py
+python main.py
 ```
-
-## Usage
-
-![Main window](./docs/window.jpg)
-
-1. Selected files - List of files selected to be bundled into pdf
-2. 
