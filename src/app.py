@@ -62,14 +62,15 @@ class App:
         inputFrm = ttk.Frame(f1)
         inputFrm.pack(side=TOP, fill=BOTH, expand=True)
         inputFrm.grid_rowconfigure((0, 7), weight=1)
+        inputFrm.grid_rowconfigure((1, 4), pad=10)
+        inputFrm.grid_rowconfigure((6), pad=5)
         inputFrm.grid_columnconfigure((0, 6), weight=1)
-        inputFrm.grid_columnconfigure(1, minsize=5, weight=0)
 
         ### Image scale input
         #TODO: Add radio options for different image arrangements (2 per page, full page, landscape 2 per page)      
         self.imageScale = DoubleVar(value=1)
-        ttk.Label(inputFrm, text="Image Scale", justify="left").grid(row=0, column=1, columnspan=2, sticky=(W))
-        ttk.Entry(inputFrm, textvariable=self.imageScale).grid(row=1, column=2)
+        ttk.Label(inputFrm, text="Image Scale", justify="left").grid(row=1, column=1, columnspan=2, sticky=(W))
+        ttk.Entry(inputFrm, width=6, textvariable=self.imageScale).grid(row=1, column=5, sticky=(E))
         
         ### Output folder input
         self.outputDir = StringVar()
@@ -78,17 +79,17 @@ class App:
         self.outputBrowseButton.grid(row=2, column=4, columnspan=2) 
         self.outputDirEntry = ttk.Entry(inputFrm, textvariable=self.outputDir)
         self.outputDirEntry["state"] = "readonly"
-        self.outputDirEntry.grid(row=3, column=2, columnspan=4, sticky=(W,E))
+        self.outputDirEntry.grid(row=3, column=1, columnspan=5, sticky=(W,E), pady=5)
 
         ### "Use Source Folder" checkbox
         self.useSourceDir = BooleanVar()
-        ttk.Checkbutton(inputFrm, command=self.toggleSourceDir, text="Output to image source folder", variable=self.useSourceDir).grid(row=4, column=1, columnspan=5)
+        ttk.Checkbutton(inputFrm, command=self.toggleSourceDir, text="Output to image source folder", variable=self.useSourceDir).grid(row=4, column=1, columnspan=5, pady=5)
         
         ### Output file name input
         self.outputFileName = StringVar(value="output")
         ttk.Label(inputFrm, text="Output File Name", justify="left").grid(row=5, column=1, columnspan=2, sticky=(W))
         self.outputFileEntry = ttk.Entry(inputFrm, textvariable=self.outputFileName, justify="right")
-        self.outputFileEntry.grid(row=6, column=2, columnspan=4, sticky=(W,E))
+        self.outputFileEntry.grid(row=6, column=1, columnspan=5, sticky=(W,E))
         ttk.Label(inputFrm, text=".pdf").grid(row=6, column=6, sticky=(W))
     
         self.generateBtn = ttk.Button(f1, text="Generate PDF", command=self.onGeneratePdf, padding=10)
