@@ -43,8 +43,9 @@ class ImageList(ttk.Frame):
     _files: list[ImageEntry] = []
     _widgets: list[ttk.Widget] = []
     
-    def __init__(self, master: Misc | None = None, title: str = "", **kwargs):
+    def __init__(self, master = None, app = None, title: str = "", **kwargs):
         ttk.Frame.__init__(self, master, **kwargs)
+        self._app = app
         f0 = ttk.Frame(self, padding=10)
         f0.pack(side=TOP, fill=X, anchor=NW)
         ttk.Label(f0, text=title, font=("Arial", 12, "bold")).pack(side=LEFT, fill=X)
@@ -63,7 +64,7 @@ class ImageList(ttk.Frame):
         self.windows_item = self.canvas.create_window(0, 0, window=self.frame, anchor=NW)
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         self.canvas.bind("<Configure>", self.onFrameConfig)
-        
+        self.frame.bind("<Configure>", self.onFrameConfig)
         f2 = ttk.Frame(self)
         f2.pack(side=RIGHT, fill=Y, anchor=E)
         
@@ -99,6 +100,7 @@ class ImageList(ttk.Frame):
                 self.createEntry(file, )
         
         self.onFrameUpdate()
+        self.canvas.yview_moveto(1.0)
         
     # index - 
     # def insertAddButton(self, index):
@@ -114,8 +116,8 @@ class ImageList(ttk.Frame):
         self.onFrameUpdate()
         
     def onFrameUpdate(self):        
-        self.canvas.update_idletasks()
         self.canvas.configure(scrollregion=self.frame.bbox())
+        self.canvas.update_idletasks()
     
     def clear(self):
         for w in self._widgets:
@@ -126,7 +128,7 @@ class ImageList(ttk.Frame):
         self._widgets = []
         
     def createEntry(self, filePath, index=None):
-        image = ImageEntry(self, filePath)
+        image = ImageEntry(self, filePath, scale=self._app.defaultScale.get())
         self._files.append(image)
         if len(self._files) == 2:
             self._files[0].updateControlsState()
@@ -221,17 +223,25 @@ class ImageEntry(ttk.Frame):
                     self.tooltip = None
                 self.btn.configure(state="disabled", cursor=None)
                 
-    def __init__(self, list: ImageList, file: str, layout: PageLayout | str = PageLayout.IMAGE_ONLY, caption=None, scale=1, index=None):      
+    def __init__(self, 
+            list: ImageList, 
+            file: str, 
+            layout: PageLayout | str = PageLayout.IMAGE_ONLY, 
+            caption = "", 
+            scale = 1.0, 
+            index = None,
+            # normalizeExclude: bool = False, 
+            sidebar = 3.0):      
         ttk.Frame.__init__(self, list.frame, padding=5, border=2, relief=SOLID, borderwidth=2)
         self._list = list
         self._file = file
         if isinstance(layout, str):
             layout = PageLayout[layout]
         self._layout = IntVar(value=layout.value)   
-        self._sidebarSize = DoubleVar(value=3.0)
+        self._sidebarSize = DoubleVar(value=sidebar)
         if not caption:
             info = IPTCInfo(self._file)
-            self._caption = info['caption/abstract'].decode("utf-8")
+            self._caption = info['caption/abstract'].decode("utf-8") if info["caption/abstract"] else ""
         else:
             self._caption = caption
         self.resolution = Resolution.fromFilePath(file)
@@ -270,6 +280,8 @@ class ImageEntry(ttk.Frame):
         ttk.Radiobutton(layoutFrm, variable=self._layout, text="Caption Sidebar", value=PageLayout.CAPTION_SIDEBAR.value, command=self.onLayoutChange).grid(row=0, column=1, padx=5) 
         layoutFrm.grid(row=1, column=0, columnspan=5, sticky=(W))
         
+        # self.excludeFromNormalization = BooleanVar(value = normalizeExclude)
+        # ttk.Checkbutton(f, text="Do not use when normalizing images", variable=self.excludeFromNormalization).grid(row=4, column=0, columnspan=4, sticky=(W, E))
         f2 = ttk.Frame(f)
         delBtn = ttk.Button(f2, text='\u2715', cursor="hand2", width=3, command = lambda : self._list.removeEntry(self), style="Delete.TButton")
         delBtn.pack(side=LEFT, padx=2)
@@ -282,7 +294,7 @@ class ImageEntry(ttk.Frame):
         self.captionBtn.pack(side=LEFT, padx=10)
         ttk.Label(f2, text="(%.2fin x %.2fin)" % self.resolution.toTuple()).pack(side=RIGHT)
         
-        f2.grid(row=4, column=0, columnspan=6, sticky=(W, S))
+        f2.grid(row=5, column=0, columnspan=6, sticky=(W, S))
         listControls = ttk.Frame(self)
         listControls.pack(side=RIGHT, anchor=NE, fill=Y, expand=True)
         
@@ -319,7 +331,9 @@ class ImageEntry(ttk.Frame):
             "scale": self._scale.get(),
             "layout": self.layout.name,
             "caption": self._caption,
-            "index": self._index
+            "index": self._index,
+            "sidebar": self._sidebarSize.get(),
+            # "normalizeExclude": self.excludeFromNormalization.get()
         }
         return res
     
@@ -339,6 +353,7 @@ class ImageEntry(ttk.Frame):
             self.sf.grid_forget()
             
     def editCaption(self):
+        self.captionBtn.configure(state="disabled")
         dialog = Toplevel(height=180, width=200)
         dialog.title("Edit Image Caption")
         self._dialog = dialog
@@ -351,6 +366,7 @@ class ImageEntry(ttk.Frame):
         bf.pack()
         btn = ttk.Button(bf, text="Save", command=lambda: self.updateCaption(t_input.get("0.0", "end")))
         btn.pack()
+        t_input.bind("<Control-s>", lambda _: self.updateCaption(t_input.get("0.0", END), False))
     
     def getResolution(self) -> Resolution:
         return self.resolution.scale(self._scale.get())
@@ -372,9 +388,13 @@ class ImageEntry(ttk.Frame):
     def getCaption(self) -> str:
         return self._caption
     
-    def updateCaption(self, str):
+    def updateCaption(self, str, close=True):
         self._caption = str
-        self._dialog.destroy()
+        if close:
+            self._dialog.destroy()
+            self.captionBtn.configure(state="normal")
+            self._list._app.root.focus_force()
+            self._dialog = None
     
     def setRow(self, index):
         self._index = index

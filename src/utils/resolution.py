@@ -35,7 +35,7 @@ class Resolution(object):
     @staticmethod
     def fromImage(im: PIL.Image.Image):
         (width, height) = im.size
-        (dpiW, dpiH)= im.info["dpi"]
+        (dpiW, dpiH)= im.info["dpi"] if "dpi" in im.info else (72, 72)
         return Resolution(float((width / dpiW)), float((height / dpiH)))
 
     @staticmethod

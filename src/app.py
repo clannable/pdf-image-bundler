@@ -78,10 +78,10 @@ class App:
         
         inputFrm = ttk.Frame(f1)
         inputFrm.pack(side=TOP, fill=BOTH, expand=True)
-        inputFrm.grid_rowconfigure((0, 7), weight=1)
+        inputFrm.grid_rowconfigure((0, 8), weight=1)
         inputFrm.grid_rowconfigure((1, 4), pad=10)
         inputFrm.grid_rowconfigure((6), pad=5)
-        inputFrm.grid_columnconfigure((0, 6), weight=1)
+        inputFrm.grid_columnconfigure((0, 7), weight=1)
 
         ### Image scale input
         #TODO: Add radio options for different image arrangements (2 per page, full page, landscape 2 per page)      
@@ -90,28 +90,33 @@ class App:
         # ttk.Entry(inputFrm, width=6, textvariable=self.imageScale).grid(row=1, column=5, sticky=(E))
         
         self.parSpacing = IntVar(value=6)
-        ttk.Label(inputFrm, text="Paragraph Spacing").grid(row=1, column=1, columnspan=3)
-        ttk.Entry(inputFrm, textvariable=self.parSpacing, width=4).grid(row=1, column=4, sticky=(W, E))
-        ttk.Label(inputFrm, text="pt").grid(row=1, column=5, sticky=(W))
+        ttk.Label(inputFrm, text="Paragraph Spacing").grid(row=1, column=1, columnspan=3, sticky=(W))
+        ttk.Entry(inputFrm, textvariable=self.parSpacing, width=4).grid(row=1, column=5, sticky=(W, E))
+        ttk.Label(inputFrm, text="pt").grid(row=1, column=6, sticky=(W))
+        
+        self.defaultScale = DoubleVar(value = 1)
+        ttk.Label(inputFrm, text="Default Scale", justify="left").grid(row=2, column=1, columnspan=3, sticky=(W))
+        ttk.Entry(inputFrm, textvariable=self.defaultScale).grid(row=2, column=5, sticky=(W, E))
+        
         ### Output folder input
         self.outputDir = StringVar()
-        ttk.Label(inputFrm, text="Output Folder", justify="left").grid(row=2, column=1, columnspan=2, sticky=(W))
+        ttk.Label(inputFrm, text="Output Folder", justify="left").grid(row=3, column=1, columnspan=2, sticky=(W))
         self.outputBrowseButton = ttk.Button(inputFrm, text="Choose", command=self.selectOutputDir)
-        self.outputBrowseButton.grid(row=2, column=4, columnspan=2) 
+        self.outputBrowseButton.grid(row=3, column=4, columnspan=2) 
         self.outputDirEntry = ttk.Entry(inputFrm, textvariable=self.outputDir)
         self.outputDirEntry["state"] = "readonly"
-        self.outputDirEntry.grid(row=3, column=1, columnspan=5, sticky=(W,E), pady=5)
+        self.outputDirEntry.grid(row=4, column=1, columnspan=5, sticky=(W,E), pady=5)
 
         ### "Use Source Folder" checkbox
         self.useSourceDir = BooleanVar()
-        ttk.Checkbutton(inputFrm, command=self.toggleSourceDir, text="Output to image source folder", variable=self.useSourceDir).grid(row=4, column=1, columnspan=5, pady=5)
+        ttk.Checkbutton(inputFrm, command=self.toggleSourceDir, text="Output to image source folder", variable=self.useSourceDir).grid(row=5, column=1, columnspan=5, pady=5)
         
         ### Output file name input
         self.outputFileName = StringVar(value="output")
-        ttk.Label(inputFrm, text="Output File Name", justify="left").grid(row=5, column=1, columnspan=2, sticky=(W))
+        ttk.Label(inputFrm, text="Output File Name", justify="left").grid(row=6, column=1, columnspan=2, sticky=(W))
         self.outputFileEntry = ttk.Entry(inputFrm, textvariable=self.outputFileName, justify="right")
-        self.outputFileEntry.grid(row=6, column=1, columnspan=5, sticky=(W,E))
-        ttk.Label(inputFrm, text=".pdf").grid(row=6, column=6, sticky=(W))
+        self.outputFileEntry.grid(row=7, column=1, columnspan=5, sticky=(W,E))
+        ttk.Label(inputFrm, text=".pdf").grid(row=7, column=6, sticky=(W))
     
         self.generateBtn = ttk.Button(f1, text="Generate PDF", command=self.onGeneratePdf, padding=10)
         self.generateBtn.pack(side=BOTTOM, anchor=S, expand=True, padx=10, pady=10)
@@ -121,7 +126,7 @@ class App:
         # Wrapper frame to pack group to top
         f2 = ttk.Frame(self.frm, padding=5)
         f2.grid(row=0, column=1, sticky=(N,S,E,W))
-        self.fileList = ImageList(f2, "Selected Files")
+        self.fileList = ImageList(f2, self, "Selected Files")
         self.fileList.pack(fill=BOTH, expand=True, anchor=NW)
 
         ### PDF Generation status text holder
@@ -151,6 +156,10 @@ class App:
                 self.useSourceDir.set(bundlejson["useSourceAsOutput"])
                 self.outputFileName.set(bundlejson["outputName"])
                 self.fileList.loadFromJson(bundlejson["files"])
+                if "normalizeImages" in bundlejson:
+                    self.normalizeSize.set(bundlejson["normalizeImages"])
+                if "defaultScale" in bundlejson:
+                    self.defaultScale.set(bundlejson["defaultScale"])
                 
                 for oldFile in files:
                     oldFile.destroy()
@@ -195,6 +204,8 @@ class App:
                     "outputDir": self.outputDir.get(),
                     "useSourceAsOutput": self.useSourceDir.get(),
                     "outputName": self.outputFileName.get(),
+                    "normalizeImages": self.normalizeSize.get(),
+                    "defaultScale": self.defaultScale.get(),
                     "files": [im.toJson() for im in self.fileList.files]
                 }
                 with open(bundle, "w") as exportFile:
@@ -383,11 +394,11 @@ class App:
                     bw = entry.sidebarSize - 0.5
                 args += "\\begin{flushleft} \\begin{textblock*}{%.2fin}(%.2fin, %.2fin)\n" % (bw, bx, by)
                 if entry.getCaption():
-                    print(entry.getCaption())
+                    # print(entry.getCaption())
                     for par in entry.getCaption().split("\n"):
                         if not par:
                             continue
-                        args += par + "\\par\n"
+                        args += par.replace("&", "\\&") + "\\par\n"
                 args += "\\end{textblock*}\n\\end{flushleft}\n"
             texArgs.append(args)
             
@@ -405,11 +416,13 @@ class App:
             texOutput.write(latexSource)
             texOutput.close()
 
-        cmd = "xelatex {0}/output.tex -output-directory {0}".format(tempDir.replace('\\', '/'))
+        cmd = "xelatex {0}/output.tex -halt-on-error -output-directory {0}".format(tempDir.replace('\\', '/'))
         try:
             self.status.set("Generating pdf file...")
             self.statusLbl.update()
-            subprocess.call(cmd)
+            result = subprocess.call(cmd)
+            if result != 0:
+                raise Exception("latex error")
             tempPath = os.path.join(tempDir, "output.pdf")
             if (os.path.exists(tempPath)):
                 outputPath = os.path.join(outDir, outFile + ".pdf")
