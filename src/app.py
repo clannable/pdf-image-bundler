@@ -1,6 +1,7 @@
 import subprocess
 import os
 import re
+import json
 import tempfile
 import shutil
 import PIL.Image
@@ -10,10 +11,11 @@ from tkinter import ttk, filedialog, simpledialog, messagebox
 import threading
 
 from .utils import *
-from .widgets import ImageList
+from .widgets.image import ImageList, ImageEntry, PageLayout
 
 class App:
     def __init__(self, root: Tk):
+        
         style = ttk.Style()
         style.configure("FileList.TFrame", background="#ffffff")
         style.configure("Delete.TButton", foreground="red")
@@ -25,9 +27,17 @@ class App:
         self.root.geometry("800x500")
                 
         # Menubar options
+        self.bundle = None
         
         menubar = Menu(self.root)
         self.root.config(menu=menubar)
+        self.fileMenu = Menu(menubar, tearoff=False)
+        self.fileMenu.add_command(label="Open Bundle", command=self.openBundle)
+        
+        self.fileMenu.add_command(label="Save Bundle", state="disabled", command=self.saveBundle)
+        self.fileMenu.add_command(label="Save Bundle As...", command=self.saveBundleAs)
+        
+        menubar.add_cascade(label="File", menu=self.fileMenu)
         optsMenu = Menu(menubar, tearoff=False)
         
         self.normalizeSize = BooleanVar()
@@ -43,6 +53,11 @@ class App:
 
         menubar.add_cascade(label="Options", menu=optsMenu)
         
+        imMenu = Menu(menubar, tearoff=False)
+        imMenu.add_command(label="Set all images scale to...", command=self.scaleAllImages)
+        imMenu.add_command(label="Set all sidebar sizes to...", command=self.setSidebarSizes)
+        
+        menubar.add_cascade(label="Images", menu=imMenu)
         # Main app window
         ttk.Label(self.root, padding=3, font=("Arial", 16), text="Image Set PDF Bundler").pack()
         
@@ -68,10 +83,14 @@ class App:
 
         ### Image scale input
         #TODO: Add radio options for different image arrangements (2 per page, full page, landscape 2 per page)      
-        self.imageScale = DoubleVar(value=1)
-        ttk.Label(inputFrm, text="Image Scale", justify="left").grid(row=1, column=1, columnspan=2, sticky=(W))
-        ttk.Entry(inputFrm, width=6, textvariable=self.imageScale).grid(row=1, column=5, sticky=(E))
+        # self.imageScale = DoubleVar(value=1)
+        # ttk.Label(inputFrm, text="Image Scale", justify="left").grid(row=1, column=1, columnspan=2, sticky=(W))
+        # ttk.Entry(inputFrm, width=6, textvariable=self.imageScale).grid(row=1, column=5, sticky=(E))
         
+        self.parSpacing = IntVar(value=6)
+        ttk.Label(inputFrm, text="Paragraph Spacing").grid(row=1, column=1, columnspan=3)
+        ttk.Entry(inputFrm, textvariable=self.parSpacing, width=4).grid(row=1, column=4, sticky=(W, E))
+        ttk.Label(inputFrm, text="pt").grid(row=1, column=5, sticky=(W))
         ### Output folder input
         self.outputDir = StringVar()
         ttk.Label(inputFrm, text="Output Folder", justify="left").grid(row=2, column=1, columnspan=2, sticky=(W))
@@ -110,6 +129,75 @@ class App:
             
     #---------Menubar command callbacks---------
     
+    def openBundle(self):
+        bundlePath = filedialog.askopenfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
+        if bundlePath:
+            with open(bundlePath, "r") as bundle:
+                bundlejson = json.load(bundle)
+                bundle.close()
+                
+            spacing = self.parSpacing.get()
+            outputDir = self.outputDir.get()
+            sourceDir = self.useSourceDir.get()
+            outputName = self.outputFileName.get()
+            files = self.fileList.files
+            
+            try:
+                
+                self.parSpacing.set(bundlejson["parSpacing"])
+                self.outputDir.set(bundlejson["outputDir"])
+                self.useSourceDir.set(bundlejson["useSourceAsOutput"])
+                self.outputFileName.set(bundlejson["outputName"])
+                self.fileList.loadFromJson(bundlejson["files"])
+                
+                for oldFile in files:
+                    oldFile.destroy()
+                
+                self.bundle = bundlePath
+                self.fileMenu.entryconfig("Save Bundle", state="normal")
+            except Exception as e:
+                messagebox.showerror("Error: Failed to load bundle")
+                self.parSpacing.set(spacing)
+                self.outputDir.set(outputDir)
+                self.useSourceDir.set(sourceDir)
+                self.outputFileName.set(outputName)
+                self.fileList.setFiles(files)
+                raise e
+                                    
+
+    def saveBundleAs(self):
+        exportPath = filedialog.asksaveasfilename(
+            defaultextension=".json", 
+            filetypes=[("JSON File", "*.json")],
+            initialdir=os.path.dirname(self.bundle) if self.bundle else None,
+            initialfile=os.path.basename(self.bundle) if self.bundle else "bundle"    
+        )
+        self.bundle = exportPath
+        try:
+            self.saveBundle()
+            self.fileMenu.entryconfig("Save Bundle", state="normal")
+        except Exception as e:
+            raise e
+    def saveBundle(self, bundle=None): 
+        if not bundle and self.bundle:
+            bundle = self.bundle
+        if bundle:
+            try:
+                jsonOut = {
+                    "parSpacing": self.parSpacing.get(),
+                    "outputDir": self.outputDir.get(),
+                    "useSourceAsOutput": self.useSourceDir.get(),
+                    "outputName": self.outputFileName.get(),
+                    "files": [im.toJson() for im in self.fileList.files]
+                }
+                with open(bundle, "w") as exportFile:
+                    json.dump(jsonOut, exportFile, indent=4)
+                    exportFile.close()
+                    self.bundle = bundle
+            except Exception as e:
+                messagebox.showerror("An Error Occurred", "Error saving bundle")
+                raise e
+            
     def resetOutputs(self):
         if messagebox.askyesno("Reset Output Settings", "Reset all output settings?"):
             self.outputDir.set("")
@@ -129,7 +217,18 @@ class App:
             self.outputFileName.set("")
             self.useSourceDir.set(False)
             self.outputFileName.set("output")
+    
+    def scaleAllImages(self):
+        scale = simpledialog.askfloat("Set image scale", "Enter in the scale value to use for all images", initialvalue=1, minvalue=0.1)
+        if scale:
+            for entry in self.fileList.files:
+                entry.setScale(scale) 
                 
+    def setSidebarSizes(self):
+        size = simpledialog.askfloat("Set sidebar size", "Enter the value to use as the sidebar size for all images", initialvalue=3.0, minvalue=1.0) 
+        if size:
+            for entry in self.fileList.files:
+                entry.setSidebarSize(size)
     #---------Button command callbacks---------
     
     def toggleSourceDir(self):
@@ -168,13 +267,17 @@ class App:
         if not self.outputFileName.get():
             messagebox.showerror(message="Error: Invalid output file name")
             return
-        scale = self.imageScale.get() or 1
-        if scale <= 0:
-            messagebox.showerror(message="Error: Invalid image scale")
+        spacing = self.parSpacing.get()
+        if not spacing or spacing < 0:
+            messagebox.showerror(message="Error: Invalid paragraph spacing")
             return
+        # scale = self.imageScale.get() or 1
+        # if scale <= 0:
+        #     messagebox.showerror(message="Error: Invalid image scale")
+        #     return
             
         if self.useSourceDir.get():
-            outDir = os.path.dirname(files[0])
+            outDir = os.path.dirname(files[0].filePath)
         else:
             outDir = self.outputDir.get()
         outFile = self.outputFileName.get()
@@ -194,96 +297,129 @@ class App:
         ))
         thread.run()
         
-    def generate_pdf(self, files, outDir, outFile):
+    def generate_pdf(self, files: list[ImageEntry], outDir, outFile):
         tempFiles, tempDir = [], tempfile.mkdtemp()            
-        imgSizes: list[tuple[str, Resolution]] = []
+        entries: list[tuple[str, ImageEntry]] = []
         minWidth, minHeight = None, None
-        texSource = os.path.join(os.getcwd(), "src", "latex", "images-to-pdf.tex")
+        texSource = os.path.join(os.getcwd(), "src", "latex", "images-to-pdf-caption.tex")
 
-        try:
-            scale = self.imageScale.get() or 1
-            if scale != 1:
-                self.status.set("Resizing & copying images...")
-            else:
-                self.status.set("Copying images...")
-            self.statusLbl.update()
-                
-            for i, file in enumerate(files):
-                res: Resolution
-                tempFilePath = os.path.join(tempDir, str(i) + os.path.splitext(file)[1])
-                
-                try:
-                    with PIL.Image.open(file) as im:
-                        if scale != 1:
-                            (width, height) = im.size
-                            im_rs = im.resize((round(width*scale), round(height*scale)))
-                            im_rs.save(tempFilePath)
-                            res = Resolution.fromImage(im_rs)
-                            im_rs.close()
-                        else:
-                            res = Resolution.fromImage(im)
-                            tempFilePath = os.path.join(tempDir, str(i) + os.path.splitext(file)[1])
-                            im.save(tempFilePath)
-                            
-                        im.close()
-                            
-                    tempFiles.append(tempFilePath)
-                    if self.normalizeSize.get():
-                        if res and res.getOrientation() == Orientation.PORTRAIT:
-                            minWidth = min(res.width, minWidth) if minWidth is not None else res.width
-                        else:
-                            minHeight = min(res.height, minHeight) if minHeight is not None else res.height
-                        
-                    imgSizes.append((tempFilePath, res))
-                except Exception as e:
-                    print(e)
-                    continue
-                
-            self.status.set("Normalizing page sizes...")
-            self.statusLbl.update()
-            texArgs = []
-
-            for i in imgSizes:
-                size: Resolution = i[1]
-                if self.normalizeSize.get():
-                    res = size.normalize(minWidth, minHeight).toTuple()
-                else:
-                    res = size.toTuple()
-                texArgs.append("\\pdfpagewidth %.2fin \\pdfpageheight %.2fin \\noindent \\includegraphics[width=\\pdfpagewidth]{%s} " % (res[0], res[1], i[0].replace("\\", "/")))
-            with open(texSource, "r") as source:
-                latexSource = source.read()
-                latexSource = latexSource.replace("%ARGS%", "\\newpage\n".join(texArgs))
-                source.close()
-
-            self.status.set("Generating LaTeX file...")
-            self.statusLbl.update()
+        # try:
+        # scale = self.imageScale.get() or 1
+        # if scale != 1:
+        self.status.set("Resizing & copying images...")
+        # else:
+        #     self.status.set("Copying images...")
+        self.statusLbl.update()
             
-            with open(os.path.join(tempDir, "output.tex"), 'w') as texOutput:
-                texOutput.write(latexSource)
-                texOutput.close()
-
-            cmd = "pdflatex {0}/output.tex -output-directory {0}".format(tempDir.replace('\\', '/'))
+        for i, entry in enumerate(files):
+            tempFilePath = os.path.join(tempDir, str(i) + os.path.splitext(entry.filePath)[1])
+            
             try:
-                self.status.set("Generating pdf file...")
-                self.statusLbl.update()
-                subprocess.call(cmd)
-                tempPath = os.path.join(tempDir, "output.pdf")
-                if (os.path.exists(tempPath)):
-                    outputPath = os.path.join(outDir, outFile + ".pdf")
-                    # Remove existing file to prevent name conflicts
-                    if os.path.exists(os.path.join(outputPath)):
-                        os.remove(outputPath)
-                    shutil.copyfile(tempPath, outputPath)
-                
-                self.status.set("Done")
-                self.statusLbl.update()
-                openFile = messagebox.askyesno("File generated", "PDF file successfully generated. View it now?")
-                if openFile:
-                    os.startfile(outputPath)
+                # with PIL.Image.open(entry.filePath) as im:
+                    # scale = entry.getImageScale()
+                    # if scale != 1:
+                    #     (width, height) = im.size
+                    #     im_rs = im.resize((round(width*scale), round(height*scale)))
+                    #     im_rs.save(tempFilePath)
+                    #     entry.resolution = Resolution.fromImage(im_rs)
+                    #     im_rs.close()
+                    # else:
+                    #     entry.resolution = Resolution.fromImage(im)
+                    # im.save(tempFilePath)
+                        
+                    # im.close()
+                shutil.copyfile(entry.filePath, tempFilePath)
+                tempFiles.append(tempFilePath)
+                if self.normalizeSize.get():
+                    res = entry.getResolution()
+                    if res and res.getOrientation() == Orientation.PORTRAIT:
+                        minWidth = min(res.width, minWidth) if minWidth is not None else res.width
+                    else:
+                        minHeight = min(res.height, minHeight) if minHeight is not None else res.height
+                    
+                entries.append((tempFilePath, entry))
             except Exception as e:
-                self.status.set("Error: Failed to generate PDF")
-                messagebox.showerror(message=f"Failed to generate PDF: {e}")
+                print(e)
+                continue
+            
+        self.status.set("Normalizing page sizes...")
+        self.statusLbl.update()
+        texArgs = []
+        for i in entries:
+            imgSizer = "width=\\pdfpagewidth" 
+            entry: ImageEntry = i[1]
+            res = entry.getResolution()
+            orientation = res.getOrientation()
+            layout = entry.layout
+            if self.normalizeSize.get():
+                (width, height) = res.normalize(minWidth, minHeight).toTuple()
+            else:
+                (width, height) = res.toTuple()
+            if layout == PageLayout.CAPTION_SIDEBAR:
+                if orientation == Orientation.PORTRAIT:
+                    imgSizer = "width=\\pdfpagewidth"
+                    height += entry.sidebarSize
+                else:
+                    imgSizer = "height=\\pdfpageheight"
+                    width += entry.sidebarSize
+                    
+            args = "\\pdfpagewidth %.2fin \\pdfpageheight %.2fin \n\\noindent \\includegraphics[%s]{%s}\n" % (width, height, imgSizer, i[0].replace("\\", "/"))
+            if layout == PageLayout.CAPTION_SIDEBAR:
+                if orientation == Orientation.PORTRAIT:
+                    bx = 0.25
+                    by = height - entry.sidebarSize + 0.25
+                    bw = width - 0.5
+                else:
+                    bx = width - entry.sidebarSize + 0.25
+                    by = 0.25
+                    bw = entry.sidebarSize - 0.5
+                args += "\\begin{flushleft} \\begin{textblock*}{%.2fin}(%.2fin, %.2fin)\n" % (bw, bx, by)
+                if entry.getCaption():
+                    print(entry.getCaption())
+                    for par in entry.getCaption().split("\n"):
+                        if not par:
+                            continue
+                        args += par + "\\par\n"
+                args += "\\end{textblock*}\n\\end{flushleft}\n"
+            texArgs.append(args)
+            
+        with open(texSource, "r") as source:
+            latexSource = source.read()
+
+            latexSource = latexSource.replace("%PAR_SPACING%", str(self.parSpacing.get()))
+            latexSource = latexSource.replace("%ARGS%", "\\newpage\n".join(texArgs))
+            source.close()
+
+        self.status.set("Generating LaTeX file...")
+        self.statusLbl.update()
+        
+        with open(os.path.join(tempDir, "output.tex"), 'w', encoding="utf-8") as texOutput:
+            texOutput.write(latexSource)
+            texOutput.close()
+
+        cmd = "xelatex {0}/output.tex -output-directory {0}".format(tempDir.replace('\\', '/'))
+        try:
+            self.status.set("Generating pdf file...")
+            self.statusLbl.update()
+            subprocess.call(cmd)
+            tempPath = os.path.join(tempDir, "output.pdf")
+            if (os.path.exists(tempPath)):
+                outputPath = os.path.join(outDir, outFile + ".pdf")
+                # Remove existing file to prevent name conflicts
+                if os.path.exists(os.path.join(outputPath)):
+                    os.remove(outputPath)
+                shutil.copyfile(tempPath, outputPath)
+                shutil.copyfile(os.path.join(tempDir, "output.tex"), os.path.join(outDir, "output.tex"))
+            
+            self.status.set("Done")
+            self.statusLbl.update()
+            openFile = messagebox.askyesno("File generated", "PDF file successfully generated. View it now?")
+            if openFile:
+                os.startfile(outputPath)
         except Exception as e:
-            print(e)
+            self.status.set("Error: Failed to generate PDF")
+            messagebox.showerror(message=f"Failed to generate PDF: {e}")
+        # except Exception as e:
+        #     print(e)
         finally:
             shutil.rmtree(tempDir)

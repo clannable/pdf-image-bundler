@@ -1,13 +1,16 @@
 from tkinter import *
 from tkinter import filedialog
-from tkinter import ttk
+from tkinter import ttk, font
 from tktooltip import ToolTip
 from typing import Callable
 from enum import Enum
+import PIL.Image
+
 import os
 import subprocess
 import platform
-import PIL.Image
+
+from ..utils import Resolution
 from iptcinfo3 import IPTCInfo
 # LAYOUT_ICONS = {
 #     "caption_sidebar": PhotoImage(file=os.path.join(os.getcwd(), "src", "assets", "sidebar.png")),
@@ -36,6 +39,7 @@ class ImageEntry(ttk.Frame):
         pass
 
 class ImageList(ttk.Frame):
+    
     _files: list[ImageEntry] = []
     _widgets: list[ttk.Widget] = []
     
@@ -71,8 +75,19 @@ class ImageList(ttk.Frame):
     
     @property
     def files(self):
-        return [x.file for x in self._files]
+        return self._files
     
+    def setFiles(self, files: list[ImageEntry]):
+        self._files = files
+        self.onFrameUpdate()
+            
+    def loadFromJson(self, entriesJson):        
+        self._files = []
+        for i in range(0, len(entriesJson)):
+            self._files.append(None)            
+        for im_json in entriesJson:
+            self._files[int(im_json["index"])] = ImageEntry.fromJson(im_json, self)
+        
     def onAddFiles(self, index=None):
         selectedFiles = filedialog.askopenfilenames(parent=self,
             title="Select images to add", 
@@ -176,7 +191,12 @@ class ImageEntry(ttk.Frame):
     _list: ImageList
     _widget: Widget
     _caption: str
-    _layout: PageLayout
+    _layout: IntVar
+    _font: tuple = ("Arial", 12)
+    _dialog: Toplevel = None
+    _sidebarSize: DoubleVar
+    _scale: DoubleVar
+    resolution: Resolution
     
     class MoveControl(object):
         tooltip: ToolTip = None
@@ -201,35 +221,29 @@ class ImageEntry(ttk.Frame):
                     self.tooltip = None
                 self.btn.configure(state="disabled", cursor=None)
                 
-    def __init__(self, list: ImageList, file_path: str, layout: PageLayout = PageLayout.IMAGE_ONLY, index=None):      
+    def __init__(self, list: ImageList, file: str, layout: PageLayout | str = PageLayout.IMAGE_ONLY, caption=None, scale=1, index=None):      
         ttk.Frame.__init__(self, list.frame, padding=5, border=2, relief=SOLID, borderwidth=2)
         self._list = list
-        self._file = file_path
-        self._layout = IntVar(value=layout)   
-        
-        info = IPTCInfo(self._file)
-        self._caption = info['caption/abstract']
-        # with PIL.Image.open(self._file) as imFile:
-            # for tag in [, ExifTags.Base.XPComment]:
-            # meta = (imFile)
-            # print(meta)
-            # try:
-            #     descr = exif[ExifTags.Base.ImageDescription]
-            #     self._caption = descr
-            #     print()
-            # except KeyError:
-            #     try:
-            #         self._caption = exif[ExifTags.Base.XPComment]
-            #         print(self._caption)
-            #     except KeyError:
-            #         self._caption = None
+        self._file = file
+        if isinstance(layout, str):
+            layout = PageLayout[layout]
+        self._layout = IntVar(value=layout.value)   
+        self._sidebarSize = DoubleVar(value=3.0)
+        if not caption:
+            info = IPTCInfo(self._file)
+            self._caption = info['caption/abstract'].decode("utf-8")
+        else:
+            self._caption = caption
+        self.resolution = Resolution.fromFilePath(file)
+        self._scale = DoubleVar(value = scale)
                 
         f = ttk.Frame(self)
         f.pack(side=LEFT, fill=BOTH, expand=True)
         f.grid_columnconfigure((2, 3, 4), weight=1)
         f.grid_columnconfigure((0, 1), weight=0, minsize=5)
         f.grid_columnconfigure(1, pad=5)  
-        f.grid_rowconfigure(1, weight=1)
+        f.grid_rowconfigure(1, weight=0)
+        f.grid_rowconfigure(3, weight=1)
 
         defaultfont = ("Arial", 10)
         hoverfont = ("Arial", 10, "underline")
@@ -241,22 +255,37 @@ class ImageEntry(ttk.Frame):
         label.bind("<Double-Button-1>", self.onFileDblClick)
         self._index = index if index is not None else len(self._list)
         
-        delBtn = ttk.Button(f, text='\u2715', cursor="hand2", width=3, command = lambda : self._list.removeEntry(self), style="Delete.TButton")
-        delBtn.grid(row=2, column=0)
-        ToolTip(delBtn, msg="Remove image", delay=0.5)
-        expBtn = ttk.Button(f, text='\U0001F5C0', cursor="hand2", width=3, command=self.openSourceFolder)
-        expBtn.grid(row=2, column=1)
-        ToolTip(expBtn, msg="View in File Explorer", delay=0.5)
-
+        
+        
+        self.sf = ttk.Frame(f)
+        ttk.Label(self.sf, text="Sidebar Size: ").grid(row=0, column=0, sticky=(W))
+        self.sidebarInput = ttk.Entry(self.sf, textvariable=self._sidebarSize, width=5)
+        self.sidebarInput.grid(row=0, column=1, sticky=(E, W))
+        ttk.Label(self.sf, text="in").grid(row=0, column=2, sticky=(W))
+        # sf.grid(row=2, column=3)
+        ttk.Label(f, text="Image Scale").grid(row=3, column=0, sticky=(W))
+        ttk.Entry(f, textvariable=self._scale, width=5).grid(row=3, column=1, sticky=(W, E))
         layoutFrm = ttk.Frame(f)
-        ttk.Radiobutton(layoutFrm, variable=self._layout, text="Image Only", value=PageLayout.IMAGE_ONLY).grid(row=0, column=0, padx=5)
-        ttk.Radiobutton(layoutFrm, variable=self._layout, text="Caption Sidebar", value=PageLayout.CAPTION_SIDEBAR).grid(row=0, column=1, padx=5) 
+        ttk.Radiobutton(layoutFrm, variable=self._layout, text="Image Only", value=PageLayout.IMAGE_ONLY.value, command=self.onLayoutChange).grid(row=0, column=0, padx=5)
+        ttk.Radiobutton(layoutFrm, variable=self._layout, text="Caption Sidebar", value=PageLayout.CAPTION_SIDEBAR.value, command=self.onLayoutChange).grid(row=0, column=1, padx=5) 
         layoutFrm.grid(row=1, column=0, columnspan=5, sticky=(W))
         
+        f2 = ttk.Frame(f)
+        delBtn = ttk.Button(f2, text='\u2715', cursor="hand2", width=3, command = lambda : self._list.removeEntry(self), style="Delete.TButton")
+        delBtn.pack(side=LEFT, padx=2)
+        ToolTip(delBtn, msg="Remove image", delay=0.5)
+        expBtn = ttk.Button(f2, text='\U0001F5C0', cursor="hand2", width=3, command=self.openSourceFolder)
+        expBtn.pack(side=LEFT)
+        ToolTip(expBtn, msg="View in File Explorer", delay=0.5)
+        
+        self.captionBtn = ttk.Button(f2, text="Edit Caption", command=self.editCaption, state="disabled")
+        self.captionBtn.pack(side=LEFT, padx=10)
+        ttk.Label(f2, text="(%.2fin x %.2fin)" % self.resolution.toTuple()).pack(side=RIGHT)
+        
+        f2.grid(row=4, column=0, columnspan=6, sticky=(W, S))
         listControls = ttk.Frame(self)
         listControls.pack(side=RIGHT, anchor=NE, fill=Y, expand=True)
         
-
         ceilBtn = ttk.Button(listControls, text='\u2191\u2191', width=2, command=lambda : self._list.ceilEntry(self))
         ceilBtn.grid(row=0, column=0)   
         moveUpBtn = ttk.Button(listControls, text='\u2191', width=2, command=lambda : self._list.moveEntryUp(self))
@@ -276,12 +305,72 @@ class ImageEntry(ttk.Frame):
         self.grid(row=self._index, column=0, **IMAGE_SETTINGS)
         self.updateControlsState()
     
-    @property
-    def layout(self):
-        return self._layout.get()
+    @staticmethod
+    def fromJson(json: dict, list: ImageList) -> ImageEntry:
+        return ImageEntry(list, **json)
+        
+    def toJson(self):
+        res = {
+            "file": self._file,
+            "scale": self._scale.get(),
+            "layout": self.layout.name,
+            "caption": self._caption,
+            "index": self._index
+        }
+        return res
     
+    def setScale(self, scale): 
+        self._scale.set(scale)
+    
+    def setSidebarSize(self, size):
+        self._sidebarSize.set(size)
+        
     def onLayoutChange(self):
-        pass
+        layout = PageLayout(self._layout.get())
+        if layout == PageLayout.CAPTION_SIDEBAR:
+            self.captionBtn.configure(state="normal", cursor="hand2")
+            self.sf.grid(row=3, column=2, columnspan=3, sticky=(W), pady=5)
+        else:
+            self.captionBtn.configure(state="disabled", cursor=None)
+            self.sf.grid_forget()
+            
+    def editCaption(self):
+        dialog = Toplevel(height=180, width=200)
+        dialog.title("Edit Image Caption")
+        self._dialog = dialog
+        f = ttk.Frame(dialog, padding=10)
+        f.pack()
+        t_input = Text(f)
+        t_input.insert("0.0", self._caption or "")
+        t_input.pack()
+        bf = ttk.Frame(dialog, padding=5)
+        bf.pack()
+        btn = ttk.Button(bf, text="Save", command=lambda: self.updateCaption(t_input.get("0.0", "end")))
+        btn.pack()
+    
+    def getResolution(self) -> Resolution:
+        return self.resolution.scale(self._scale.get())
+    @property
+    def layout(self) -> PageLayout:
+        return PageLayout(self._layout.get())
+    
+    @property
+    def sidebarSize(self) -> float:
+        return self._sidebarSize.get()
+    
+    @property
+    def filePath(self) -> str:
+        return self._file
+    
+    def getImageScale(self) -> float:
+        return self._scale.get()
+    
+    def getCaption(self) -> str:
+        return self._caption
+    
+    def updateCaption(self, str):
+        self._caption = str
+        self._dialog.destroy()
     
     def setRow(self, index):
         self._index = index

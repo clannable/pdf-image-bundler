@@ -1,5 +1,5 @@
 from enum import Enum
-from PIL.Image import Image     
+import PIL.Image    
 
 class Orientation(Enum):
     PORTRAIT = 0
@@ -33,11 +33,18 @@ class Resolution(object):
         return (round(self.width, 2), round(self.height, 2))
     
     @staticmethod
-    def fromImage(im: Image):
+    def fromImage(im: PIL.Image.Image):
         (width, height) = im.size
         (dpiW, dpiH)= im.info["dpi"]
         return Resolution(float((width / dpiW)), float((height / dpiH)))
 
+    @staticmethod
+    def fromFilePath(filePath: str) -> Resolution:
+        with PIL.Image.open(filePath) as im:
+            res = Resolution.fromImage(im)
+            im.close()
+        return res
+    
     def normalize(self, width: float, height: float) -> Resolution:
         scale = 1
         orientation = self.getOrientation()
