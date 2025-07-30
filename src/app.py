@@ -32,11 +32,13 @@ class App:
         menubar = Menu(self.root)
         self.root.config(menu=menubar)
         self.fileMenu = Menu(menubar, tearoff=False)
-        self.fileMenu.add_command(label="Open Bundle", command=self.openBundle)
-        
-        self.fileMenu.add_command(label="Save Bundle", state="disabled", command=self.saveBundle)
+        self.fileMenu.add_command(label="Open Bundle", accelerator="Ctrl+O", command=self.openBundle)
+        self.fileMenu.add_separator()
+        self.fileMenu.add_command(label="Save Bundle", accelerator="Ctrl+S", command=self.saveBundle)
         self.fileMenu.add_command(label="Save Bundle As...", command=self.saveBundleAs)
         
+        self.root.bind_all("<Control-s>", lambda _: self.saveBundle())
+        self.root.bind_all("<Control-o>", lambda _: self.openBundle())
         menubar.add_cascade(label="File", menu=self.fileMenu)
         optsMenu = Menu(menubar, tearoff=False)
         
@@ -155,6 +157,7 @@ class App:
                 
                 self.bundle = bundlePath
                 self.fileMenu.entryconfig("Save Bundle", state="normal")
+                self.root.update_idletasks()
             except Exception as e:
                 messagebox.showerror("Error: Failed to load bundle")
                 self.parSpacing.set(spacing)
@@ -172,14 +175,18 @@ class App:
             initialdir=os.path.dirname(self.bundle) if self.bundle else None,
             initialfile=os.path.basename(self.bundle) if self.bundle else "bundle"    
         )
-        self.bundle = exportPath
-        try:
-            self.saveBundle()
-            self.fileMenu.entryconfig("Save Bundle", state="normal")
-        except Exception as e:
-            raise e
-    def saveBundle(self, bundle=None): 
-        if not bundle and self.bundle:
+        if exportPath:
+            try:
+                self.saveBundle(exportPath)
+                self.fileMenu.entryconfig("Save Bundle", state="normal")
+            except Exception as e:
+                raise e
+        
+    def saveBundle(self, bundle=None):
+        if not bundle and not self.bundle:
+            self.saveBundleAs()
+            return
+        elif not bundle and self.bundle:
             bundle = self.bundle
         if bundle:
             try:
@@ -230,6 +237,7 @@ class App:
             for entry in self.fileList.files:
                 entry.setSidebarSize(size)
     #---------Button command callbacks---------
+    
     
     def toggleSourceDir(self):
         toggle = self.useSourceDir.get()
@@ -423,3 +431,4 @@ class App:
         #     print(e)
         finally:
             shutil.rmtree(tempDir)
+

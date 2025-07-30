@@ -262,7 +262,7 @@ class ImageEntry(ttk.Frame):
         self.sidebarInput = ttk.Entry(self.sf, textvariable=self._sidebarSize, width=5)
         self.sidebarInput.grid(row=0, column=1, sticky=(E, W))
         ttk.Label(self.sf, text="in").grid(row=0, column=2, sticky=(W))
-        # sf.grid(row=2, column=3)
+
         ttk.Label(f, text="Image Scale").grid(row=3, column=0, sticky=(W))
         ttk.Entry(f, textvariable=self._scale, width=5).grid(row=3, column=1, sticky=(W, E))
         layoutFrm = ttk.Frame(f)
@@ -302,6 +302,10 @@ class ImageEntry(ttk.Frame):
             self.MoveControl(floorBtn, "Move to bottom", lambda : self._index < len(self._list)-1)
         ]      
         
+        if self.layout == PageLayout.CAPTION_SIDEBAR:
+            self.sf.grid(row=3, column=2, columnspan=3, sticky=(W))
+            self.captionBtn.configure(state="normal")
+            
         self.grid(row=self._index, column=0, **IMAGE_SETTINGS)
         self.updateControlsState()
     
@@ -329,7 +333,7 @@ class ImageEntry(ttk.Frame):
         layout = PageLayout(self._layout.get())
         if layout == PageLayout.CAPTION_SIDEBAR:
             self.captionBtn.configure(state="normal", cursor="hand2")
-            self.sf.grid(row=3, column=2, columnspan=3, sticky=(W), pady=5)
+            self.sf.grid(row=3, column=2, columnspan=3, sticky=(W))
         else:
             self.captionBtn.configure(state="disabled", cursor=None)
             self.sf.grid_forget()

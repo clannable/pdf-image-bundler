@@ -18,7 +18,7 @@ This tool uses LaTeX to generate a PDF file where each page is the exact print s
 
 ## Requirements
 
-- pdflatex (included in [standard LaTeX distributions](https://www.latex-project.org/get/))
+- xelatex (included in [standard LaTeX distributions](https://www.latex-project.org/get/))
 - Python >= 3.11
 
 ## Setup
