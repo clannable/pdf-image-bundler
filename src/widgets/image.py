@@ -10,7 +10,7 @@ import os
 import subprocess
 import platform
 
-from ..utils import Resolution
+from ..utils import Resolution, Orientation
 from .caption import EditCaptionDialog
 
 from iptcinfo3 import IPTCInfo
@@ -123,12 +123,11 @@ class ImageList(ttk.Frame):
         self.canvas.update_idletasks()
     
     def clear(self):
-        for w in self._widgets:
+        for w in self._files:
             w.grid_forget()
             w.destroy()
             
         self._files = []
-        self._widgets = []
         
     def toggleControls(self, disabled):
         for entry in self._files:
@@ -246,7 +245,8 @@ class ImageEntry(ttk.Frame):
             scale = 1.0, 
             page = None,
             # normalizeExclude: bool = False, 
-            sidebar = 3.0):      
+            sidebar = 3.0,
+            sidebarPosition = None):      
         ttk.Frame.__init__(self, list.frame, padding=5, border=2, relief=SOLID, borderwidth=2)
         self._list = list
         self._file = file
@@ -285,10 +285,20 @@ class ImageEntry(ttk.Frame):
         
         
         self.sf = ttk.Frame(f)
+        self.sf.grid_columnconfigure(3, weight=0, minsize=10)
         ttk.Label(self.sf, text="Sidebar Size: ").grid(row=0, column=0, sticky=(W))
         self.sidebarInput = ttk.Entry(self.sf, textvariable=self._sidebarSize, width=5)
         self.sidebarInput.grid(row=0, column=1, sticky=(E, W))
         ttk.Label(self.sf, text="in").grid(row=0, column=2, sticky=(W))
+        ttk.Label(self.sf, text="Sidebar Position").grid(row=0, column=4)
+        if sidebarPosition is None:
+            if self.resolution.getOrientation() == Orientation.LANDSCAPE:
+                sidebarPosition = RIGHT
+            else:
+                sidebarPosition = BOTTOM
+                
+        self.sidebarPosition = StringVar(value = sidebarPosition)
+        ttk.OptionMenu(self.sf, self.sidebarPosition, sidebarPosition, BOTTOM, RIGHT).grid(row=0, column=5)
 
         ttk.Label(f, text="Image Scale").grid(row=3, column=0, columnspan=2, sticky=(W))
         ttk.Entry(f, textvariable=self._scale, width=5).grid(row=3, column=2, sticky=(W, E))
@@ -341,15 +351,15 @@ class ImageEntry(ttk.Frame):
         return ImageEntry(list, **json)
         
     def toJson(self):
-        res = {
+        return {
             "file": self._file,
             "scale": self._scale.get(),
             "layout": self.layout.name,
             "caption": self._caption,
             "page": self.page.get(),
             "sidebar": self._sidebarSize.get(),
+            "sidebarPosition": self.sidebarPosition.get()
         }
-        return res
     
     def setScale(self, scale): 
         self._scale.set(scale)

@@ -222,9 +222,7 @@ class App:
             
     def resetFiles(self):
         if messagebox.askyesno("Reset Files List", "Remove all selected files?"):
-            self.files = []
-            self.fileList.delete(0, END)
-            
+            self.fileList.clear()
     def resetAll(self):
         if messagebox.askyesno("Reset All Settings", "Reset all settings and clear selected files?"):
             self.fileList.clear()
@@ -345,21 +343,23 @@ class App:
                 (width, height) = res.normalize(minWidth, minHeight).toTuple()
             else:
                 (width, height) = res.toTuple()
+            sidebarPos = entry.sidebarPosition.get()
             if layout == PageLayout.CAPTION_SIDEBAR:
-                if orientation == Orientation.PORTRAIT:
+                if sidebarPos == BOTTOM:
                     imgSizer = "width=\\pdfpagewidth"
                     height += entry.sidebarSize
-                else:
+                elif sidebarPos == RIGHT:
                     imgSizer = "height=\\pdfpageheight"
                     width += entry.sidebarSize
                     
+            
             args = "\\pdfpagewidth %.2fin \\pdfpageheight %.2fin \n\\noindent \\includegraphics[%s]{%s}\n" % (width, height, imgSizer, i[0].replace("\\", "/"))
             if layout == PageLayout.CAPTION_SIDEBAR:
-                if orientation == Orientation.PORTRAIT:
-                    bx = 0.25
+                if sidebarPos == BOTTOM:
                     by = height - entry.sidebarSize + 0.25
+                    bx = 0.25
                     bw = width - 0.5
-                else:
+                elif sidebarPos == RIGHT:
                     bx = width - entry.sidebarSize + 0.25
                     by = 0.25
                     bw = entry.sidebarSize - 0.5
