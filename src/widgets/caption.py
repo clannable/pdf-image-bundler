@@ -22,11 +22,11 @@ class EditCaptionDialog(Toplevel):
         ttk.Sizegrip(self).pack(side="bottom", anchor="se")
         bf = ttk.Frame(self, padding=10)
         bf.pack(side="bottom", anchor="s")
-        self.saveBtn = ttk.Button(bf, text="Save", state="disabled", command=self.saveAndClose)
+        self.saveBtn = ttk.Button(bf, text="Save", state="disabled", command=self.save)
         self.saveBtn.pack(side=RIGHT, padx=5)
         ttk.Button(bf, text="Close", command=self.close).pack(side=LEFT, padx=5)
         self.text.bind("<Key>", self.onKeyPress)
-        self.text.bind("<Control-s>", self.save)
+        self.text.bind("<Control-s>", lambda _: self.save())
         
         
     def onKeyPress(self, event):

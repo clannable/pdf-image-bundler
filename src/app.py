@@ -87,12 +87,6 @@ class App:
         inputFrm.grid_rowconfigure((6), pad=5)
         inputFrm.grid_columnconfigure((0, 7), weight=1)
 
-        ### Image scale input
-        #TODO: Add radio options for different image arrangements (2 per page, full page, landscape 2 per page)      
-        # self.imageScale = DoubleVar(value=1)
-        # ttk.Label(inputFrm, text="Image Scale", justify="left").grid(row=1, column=1, columnspan=2, sticky=(W))
-        # ttk.Entry(inputFrm, width=6, textvariable=self.imageScale).grid(row=1, column=5, sticky=(E))
-        
         self.parSpacing = IntVar(value=6)
         ttk.Label(inputFrm, text="Paragraph Spacing").grid(row=1, column=1, columnspan=3, sticky=(W))
         ttk.Entry(inputFrm, textvariable=self.parSpacing, width=4).grid(row=1, column=5, sticky=(W, E))
@@ -153,8 +147,7 @@ class App:
             outputName = self.outputFileName.get()
             files = self.fileList.files
             
-            try:
-                
+            try:   
                 self.parSpacing.set(bundlejson["parSpacing"])
                 self.outputDir.set(bundlejson["outputDir"])
                 self.useSourceDir.set(bundlejson["useSourceAsOutput"])
@@ -251,8 +244,8 @@ class App:
         if size:
             for entry in self.fileList.files:
                 entry.setSidebarSize(size)
+                
     #---------Button command callbacks---------
-    
     
     def toggleSourceDir(self):
         toggle = self.useSourceDir.get()
@@ -270,14 +263,6 @@ class App:
         outputdir = filedialog.askdirectory(parent=self.root, title="Select output folder", mustexist=True, initialdir=self.lastOpened)
         self.outputDir.set(outputdir)
         
-    # def importFolder(self):
-    #     importdir = filedialog.askdirectory(parent=self.root, initialdir=self.lastOpened, mustexist=True, title="Import All Images From Folder")
-    #     if importdir:
-    #         for file in next(os.walk(importdir))[2]:
-    #             if re.match(r"\.(png|jpeg|jpg|jfif)", os.path.splitext(file)[1]):
-    #                 self.files.append(os.path.join(importdir, file))
-    #                 self.fileList.insert(END, os.path.basename(file))
-
     def onGeneratePdf(self):
         files = self.fileList.files
         
@@ -326,31 +311,13 @@ class App:
         minWidth, minHeight = None, None
         texSource = os.path.join(os.getcwd(), "src", "latex", "images-to-pdf-caption.tex")
 
-        # try:
-        # scale = self.imageScale.get() or 1
-        # if scale != 1:
         self.status.set("Resizing & copying images...")
-        # else:
-        #     self.status.set("Copying images...")
         self.statusLbl.update()
             
         for i, entry in enumerate(files):
             tempFilePath = os.path.join(tempDir, str(i) + os.path.splitext(entry.filePath)[1])
             
             try:
-                # with PIL.Image.open(entry.filePath) as im:
-                    # scale = entry.getImageScale()
-                    # if scale != 1:
-                    #     (width, height) = im.size
-                    #     im_rs = im.resize((round(width*scale), round(height*scale)))
-                    #     im_rs.save(tempFilePath)
-                    #     entry.resolution = Resolution.fromImage(im_rs)
-                    #     im_rs.close()
-                    # else:
-                    #     entry.resolution = Resolution.fromImage(im)
-                    # im.save(tempFilePath)
-                        
-                    # im.close()
                 shutil.copyfile(entry.filePath, tempFilePath)
                 tempFiles.append(tempFilePath)
                 if self.normalizeSize.get():
@@ -398,7 +365,6 @@ class App:
                     bw = entry.sidebarSize - 0.5
                 args += "\\begin{flushleft} \\begin{textblock*}{%.2fin}(%.2fin, %.2fin)\n" % (bw, bx, by)
                 if entry.getCaption():
-                    # print(entry.getCaption())
                     for par in entry.getCaption().split("\n"):
                         if not par:
                             continue
@@ -420,7 +386,7 @@ class App:
             texOutput.write(latexSource)
             texOutput.close()
 
-        cmd = "xelatex {0}/output.tex -halt-on-error -output-directory {0}".format(tempDir.replace('\\', '/'))
+        cmd = "xelatex {0}/output.tex -halt-on-error -quiet -output-directory {0}".format(tempDir.replace('\\', '/'))
         try:
             self.status.set("Generating pdf file...")
             self.statusLbl.update()
@@ -434,7 +400,6 @@ class App:
                 if os.path.exists(os.path.join(outputPath)):
                     os.remove(outputPath)
                 shutil.copyfile(tempPath, outputPath)
-                shutil.copyfile(os.path.join(tempDir, "output.tex"), os.path.join(outDir, "output.tex"))
             
             self.status.set("Done")
             self.statusLbl.update()
@@ -444,8 +409,6 @@ class App:
         except Exception as e:
             self.status.set("Error: Failed to generate PDF")
             messagebox.showerror(message=f"Failed to generate PDF: {e}")
-        # except Exception as e:
-        #     print(e)
+            self.status.set("")
         finally:
             shutil.rmtree(tempDir)
-

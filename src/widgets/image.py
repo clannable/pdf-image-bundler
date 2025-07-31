@@ -24,6 +24,7 @@ IMAGE_SETTINGS = {
     "pady": 3,
     "padx": 3
 }
+
 class PageLayout(Enum):
     IMAGE_ONLY = 0 # only display image on page
     CAPTION_SIDEBAR = 1 # display image caption in narrow sidebar to the right of image
@@ -92,7 +93,10 @@ class ImageList(ttk.Frame):
         for i in range(0, len(entriesJson)):
             self._files.append(None)            
         for im_json in entriesJson:
-            self._files[int(im_json["index"])] = ImageEntry.fromJson(im_json, self)
+            if "index" in im_json:
+                im_json["page"] = im_json["index"] + 1
+                del im_json["index"]
+            self._files[int(im_json["page"])-1] = ImageEntry.fromJson(im_json, self)
         
     def onAddFiles(self, index=None):
         selectedFiles = filedialog.askopenfilenames(parent=self,
@@ -106,12 +110,6 @@ class ImageList(ttk.Frame):
         
         self.onFrameUpdate()
         self.canvas.yview_moveto(1.0)
-        
-    # index - 
-    # def insertAddButton(self, index):
-    #     btn = ttk.Button(self.frame, text="+", style="AddFile.TButton", command=lambda : self.onInsertFiles(btn))
-    #     if index is not None:
-    #         self._widgets.
                 
     def onInsertFiles(self, widget):
         self.onAddFiles(self._widgets.index(widget) // 2)
@@ -150,11 +148,11 @@ class ImageList(ttk.Frame):
         self._files.pop(index)
         entry.grid_forget()
         entry.destroy()
-        if index == len(self._files) and index != 0:
-            self._files[-1].updateControlsState()
+        if index == len(self._files) and index > 0:
+            self._files[index-1].updateControlsState()
         else:
             for (ix, im) in enumerate(self._files[index:]):
-                im.setRow(ix*2)
+                im.setRow(ix-1)
             
     def moveEntryUp(self, entry: ImageEntry):
         index = self._files.index(entry)
@@ -184,7 +182,7 @@ class ImageList(ttk.Frame):
             im = self._files[i]
             im.setRow(i-1)
         self._files.append(entry)
-        im.setRow(len(self._files)-1)
+        entry.setRow(len(self._files)-1)
                 
     def ceilEntry(self, entry: ImageEntry):
         index = self._files.index(entry)
@@ -246,7 +244,7 @@ class ImageEntry(ttk.Frame):
             layout: PageLayout | str = PageLayout.IMAGE_ONLY, 
             caption = "", 
             scale = 1.0, 
-            index = None,
+            page = None,
             # normalizeExclude: bool = False, 
             sidebar = 3.0):      
         ttk.Frame.__init__(self, list.frame, padding=5, border=2, relief=SOLID, borderwidth=2)
@@ -266,21 +264,23 @@ class ImageEntry(ttk.Frame):
                 
         f = ttk.Frame(self)
         f.pack(side=LEFT, fill=BOTH, expand=True)
-        f.grid_columnconfigure((2, 3, 4), weight=1)
-        f.grid_columnconfigure((0, 1), weight=0, minsize=5)
+        f.grid_columnconfigure((1, 2, 3, 4), weight=1)
+        f.grid_columnconfigure(0, weight=0, minsize=5)
         f.grid_columnconfigure(1, pad=5)  
         f.grid_rowconfigure(1, weight=0)
         f.grid_rowconfigure(3, weight=1)
 
         defaultfont = ("Arial", 10)
         hoverfont = ("Arial", 10, "underline")
+        self.page = IntVar(value = page if page is not None else len(self._list)+1)
+        ttk.Label(f, textvariable=self.page, width=5, anchor=CENTER, relief="sunken").grid(row=0, column=0, sticky=(W))
         label = ttk.Label(f, text=os.path.basename(self._file), font=defaultfont, justify="left")
         ToolTip(label, msg="Double-click to open file", delay=1.5)
-        label.grid(row=0, column=0, columnspan=5, sticky=(W, E))
+        label.grid(row=0, column=1, columnspan=4, sticky=(W, E))
         label.bind("<Enter>", lambda evt : evt.widget.configure(font=hoverfont, cursor="hand2"), add="+")
         label.bind("<Leave>", lambda evt : evt.widget.configure(font=defaultfont, cursor=None), add="+")
         label.bind("<Double-Button-1>", self.onFileDblClick)
-        self._index = index if index is not None else len(self._list)
+        self._index = page - 1 if page is not None else len(self._list)
         
         
         
@@ -290,15 +290,13 @@ class ImageEntry(ttk.Frame):
         self.sidebarInput.grid(row=0, column=1, sticky=(E, W))
         ttk.Label(self.sf, text="in").grid(row=0, column=2, sticky=(W))
 
-        ttk.Label(f, text="Image Scale").grid(row=3, column=0, sticky=(W))
-        ttk.Entry(f, textvariable=self._scale, width=5).grid(row=3, column=1, sticky=(W, E))
+        ttk.Label(f, text="Image Scale").grid(row=3, column=0, columnspan=2, sticky=(W))
+        ttk.Entry(f, textvariable=self._scale, width=5).grid(row=3, column=2, sticky=(W, E))
         layoutFrm = ttk.Frame(f)
         ttk.Radiobutton(layoutFrm, variable=self._layout, text="Image Only", value=PageLayout.IMAGE_ONLY.value, command=self.onLayoutChange).grid(row=0, column=0, padx=5)
         ttk.Radiobutton(layoutFrm, variable=self._layout, text="Caption Sidebar", value=PageLayout.CAPTION_SIDEBAR.value, command=self.onLayoutChange).grid(row=0, column=1, padx=5) 
         layoutFrm.grid(row=1, column=0, columnspan=5, sticky=(W))
         
-        # self.excludeFromNormalization = BooleanVar(value = normalizeExclude)
-        # ttk.Checkbutton(f, text="Do not use when normalizing images", variable=self.excludeFromNormalization).grid(row=4, column=0, columnspan=4, sticky=(W, E))
         f2 = ttk.Frame(f)
         self.delBtn = ttk.Button(f2, text='\u2715', cursor="hand2", width=3, command = self.onRemove, style="Delete.TButton")
         self.delBtn.pack(side=LEFT, padx=2)
@@ -332,7 +330,7 @@ class ImageEntry(ttk.Frame):
         ]      
         
         if self.layout == PageLayout.CAPTION_SIDEBAR:
-            self.sf.grid(row=3, column=2, columnspan=3, sticky=(W))
+            self.sf.grid(row=3, column=3, columnspan=2, sticky=(W))
             self.captionBtn.configure(state="normal")
             
         self.grid(row=self._index, column=0, **IMAGE_SETTINGS)
@@ -348,9 +346,8 @@ class ImageEntry(ttk.Frame):
             "scale": self._scale.get(),
             "layout": self.layout.name,
             "caption": self._caption,
-            "index": self._index,
+            "page": self.page.get(),
             "sidebar": self._sidebarSize.get(),
-            # "normalizeExclude": self.excludeFromNormalization.get()
         }
         return res
     
@@ -364,7 +361,7 @@ class ImageEntry(ttk.Frame):
         layout = PageLayout(self._layout.get())
         if layout == PageLayout.CAPTION_SIDEBAR:
             self.captionBtn.configure(state="normal", cursor="hand2")
-            self.sf.grid(row=3, column=2, columnspan=3, sticky=(W))
+            self.sf.grid(row=3, column=3, columnspan=2, sticky=(W))
         else:
             self.captionBtn.configure(state="disabled", cursor=None)
             self.sf.grid_forget()
@@ -423,6 +420,7 @@ class ImageEntry(ttk.Frame):
     def setRow(self, index):
         self._index = index
         self.grid(row=index, column=0, **IMAGE_SETTINGS)
+        self.page.set(index+1)
         self.updateControlsState()
         
     def updateControlsState(self, state=None):
