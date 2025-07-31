@@ -49,3 +49,14 @@ pip install -r requirements.txt
 ```sh
 python main.py
 ```
+
+## Supported Image File Formats
+
+The graphics library used to render the PDF files only supports the following image file formats:
+- PNG
+- JPEG
+  
+LaTeX does not support WebP or JFIF files. In order to include them in your PDF:
+- For WebP files, use the [WebP converter tools](https://developers.google.com/speed/webp) to convert to PNG (changing the file extension is not enough)
+- For JFIF files, simply change the extension to .jpeg or .jpg
+

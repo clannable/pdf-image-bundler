@@ -101,7 +101,7 @@ class ImageList(ttk.Frame):
     def onAddFiles(self, index=None):
         selectedFiles = filedialog.askopenfilenames(parent=self,
             title="Select images to add", 
-            filetypes=[("Image files", "*.png;*.jpg;*.jpeg;*.jfif")], 
+            filetypes=[("Image files", "*.png;*.jpg;*.jpeg;")], 
             multiple=True,
         )
         if selectedFiles:
