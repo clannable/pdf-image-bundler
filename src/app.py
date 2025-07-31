@@ -14,15 +14,19 @@ from .utils import *
 from .widgets.image import ImageList, ImageEntry, PageLayout
 
 class App:
+    root: Tk
+    lastOpened: str
+    defaultScale: DoubleVar
+    bundle: str
     def __init__(self, root: Tk):
         
         style = ttk.Style()
         style.configure("FileList.TFrame", background="#ffffff")
         style.configure("Delete.TButton", foreground="red")
         style.configure("AddFile.TButton", font=("Arial", 8))
-        self.lastOpened: str = None
+        self.lastOpened = None
         
-        self.root: Tk = root
+        self.root = root
         self.root.title("Image PDF Bundler")
         self.root.geometry("800x500")
                 

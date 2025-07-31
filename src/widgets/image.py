@@ -1,5 +1,5 @@
 from tkinter import *
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from tkinter import ttk, font
 from tktooltip import ToolTip
 from typing import Callable
@@ -11,6 +11,8 @@ import subprocess
 import platform
 
 from ..utils import Resolution
+from .caption import EditCaptionDialog
+
 from iptcinfo3 import IPTCInfo
 # LAYOUT_ICONS = {
 #     "caption_sidebar": PhotoImage(file=os.path.join(os.getcwd(), "src", "assets", "sidebar.png")),
@@ -35,7 +37,10 @@ class ImageEntry(ttk.Frame):
     def setRow(self, index):
         pass
     
-    def updateControlsState(self):
+    def updateControlsState(self, state=None):
+        pass
+    
+    def toggleControls(self, disabled):
         pass
 
 class ImageList(ttk.Frame):
@@ -127,6 +132,10 @@ class ImageList(ttk.Frame):
         self._files = []
         self._widgets = []
         
+    def toggleControls(self, disabled):
+        for entry in self._files:
+            entry.toggleControls(disabled)
+            
     def createEntry(self, filePath, index=None):
         image = ImageEntry(self, filePath, scale=self._app.defaultScale.get())
         self._files.append(image)
@@ -136,6 +145,7 @@ class ImageList(ttk.Frame):
             self._files[-2].updateControlsState()
             
     def removeEntry(self, entry: ImageEntry):
+        
         index = self._files.index(entry)
         self._files.pop(index)
         entry.grid_forget()
@@ -212,8 +222,15 @@ class ImageEntry(ttk.Frame):
             self.state_fn = state_fn
             self.update()
             
-        def update(self):
-            if self.state_fn():
+        def update(self, state=None):
+            if state is not None:
+                if state == "normal" and self.tooltip is None:
+                    self.tooltip = ToolTip(self.btn, self.msg, delay=0.5)
+                elif state == "disabled" and self.tooltip is not None:
+                    self.tooltip.destroy()
+                    self.tooltip = None
+                self.btn.configure(state=state, cursor="hand2" if state=="normal" else None)
+            elif self.state_fn():
                 if self.tooltip is None:
                     self.tooltip = ToolTip(self.btn, self.msg, delay=0.5)
                 self.btn.configure(state = "normal", cursor="hand2")
@@ -283,12 +300,12 @@ class ImageEntry(ttk.Frame):
         # self.excludeFromNormalization = BooleanVar(value = normalizeExclude)
         # ttk.Checkbutton(f, text="Do not use when normalizing images", variable=self.excludeFromNormalization).grid(row=4, column=0, columnspan=4, sticky=(W, E))
         f2 = ttk.Frame(f)
-        delBtn = ttk.Button(f2, text='\u2715', cursor="hand2", width=3, command = lambda : self._list.removeEntry(self), style="Delete.TButton")
-        delBtn.pack(side=LEFT, padx=2)
-        ToolTip(delBtn, msg="Remove image", delay=0.5)
-        expBtn = ttk.Button(f2, text='\U0001F5C0', cursor="hand2", width=3, command=self.openSourceFolder)
-        expBtn.pack(side=LEFT)
-        ToolTip(expBtn, msg="View in File Explorer", delay=0.5)
+        self.delBtn = ttk.Button(f2, text='\u2715', cursor="hand2", width=3, command = self.onRemove, style="Delete.TButton")
+        self.delBtn.pack(side=LEFT, padx=2)
+        ToolTip(self.delBtn, msg="Remove image", delay=0.5)
+        self.expBtn = ttk.Button(f2, text='\U0001F5C0', cursor="hand2", width=3, command=self.openSourceFolder)
+        self.expBtn.pack(side=LEFT)
+        ToolTip(self.expBtn, msg="View in File Explorer", delay=0.5)
         
         self.captionBtn = ttk.Button(f2, text="Edit Caption", command=self.editCaption, state="disabled")
         self.captionBtn.pack(side=LEFT, padx=10)
@@ -351,22 +368,14 @@ class ImageEntry(ttk.Frame):
         else:
             self.captionBtn.configure(state="disabled", cursor=None)
             self.sf.grid_forget()
+    
+    def onRemove(self):
+        if messagebox.askyesno("Remove Image?", "Are you sure you want to remove this image?"):
+            self._list.removeEntry(self)
             
     def editCaption(self):
-        self.captionBtn.configure(state="disabled")
-        dialog = Toplevel(height=180, width=200)
-        dialog.title("Edit Image Caption")
-        self._dialog = dialog
-        f = ttk.Frame(dialog, padding=10)
-        f.pack()
-        t_input = Text(f)
-        t_input.insert("0.0", self._caption or "")
-        t_input.pack()
-        bf = ttk.Frame(dialog, padding=5)
-        bf.pack()
-        btn = ttk.Button(bf, text="Save", command=lambda: self.updateCaption(t_input.get("0.0", "end")))
-        btn.pack()
-        t_input.bind("<Control-s>", lambda _: self.updateCaption(t_input.get("0.0", END), False))
+        EditCaptionDialog(self._caption, onSave = self.setCaption, onClose=self.onEditDialogClose)
+        self._list.toggleControls(True)
     
     def getResolution(self) -> Resolution:
         return self.resolution.scale(self._scale.get())
@@ -388,22 +397,37 @@ class ImageEntry(ttk.Frame):
     def getCaption(self) -> str:
         return self._caption
     
-    def updateCaption(self, str, close=True):
-        self._caption = str
-        if close:
-            self._dialog.destroy()
-            self.captionBtn.configure(state="normal")
-            self._list._app.root.focus_force()
-            self._dialog = None
+    def setCaption(self, caption: str):
+        self._caption = caption
     
+    def onEditDialogClose(self):
+        self.captionBtn.configure(state="normal")
+        self._list._app.root.focus_force()
+        self._list.toggleControls(False)
+    
+    def toggleControls(self, disabled):
+        if not disabled:
+            if self.layout == PageLayout.CAPTION_SIDEBAR:
+                self.captionBtn.configure(state="normal", cursor="hand2")
+            else:
+                self.captionBtn.configure(state="disabled", cursor=None)
+        else:
+            self.captionBtn.configure(state="disabled", cursor=None)
+        
+        state = "normal" if not disabled else "disabled"
+        cursor = "hand2" if not disabled else None
+        self.delBtn.configure(state=state, cursor=cursor)
+        self.expBtn.configure(state=state, cursor=cursor)
+        self.updateControlsState(state)
+        
     def setRow(self, index):
         self._index = index
         self.grid(row=index, column=0, **IMAGE_SETTINGS)
         self.updateControlsState()
         
-    def updateControlsState(self):
+    def updateControlsState(self, state=None):
         for ctrl in self.moveControls:
-            ctrl.update()
+            ctrl.update(state)
         
     def openSourceFolder(self):
         
