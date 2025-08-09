@@ -6,15 +6,19 @@ I set out to make this because I wanted to "print" a bunch of images to a single
 
 This tool uses LaTeX to generate a PDF file where each page is the exact print size of the image on it. The "Image Scale" field will scale all input image files, so if your images are bigger than the rough page size desired, they can be shrunk down.
 
-**Planned Features (so far)**
-- Additional page layout options
-    - Include image caption on page
-    - Multiple images per page (i.e. two-column)
-- Per-image scale settings
+Additional features
+- Add image captions to page with "Caption Sidebar" layout
+  - Loads image caption from IPTC data, can be customized w/o affecting image metadata
+  - Sidebar position and width can be modified for each image
+- Save and load bundles
+  - Save bundle files list, settings, custom captions so bundles can be worked on in multiple sessions
+
+**Planned Features**
+- Selecting caption font, text size
 - Better look and feel
 
 ![UI window](./docs/window2.jpg)
-
+Screenshot is out of date, will update eventually. 
 
 ## Requirements
 
@@ -44,11 +48,18 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Execute main python script
+4. Install LaTeX packages
+```sh
+# TODO: Add mintex/texlive command for installing packages
+```
+
+5. Execute main python script
 
 ```sh
 python main.py
 ```
+
+
 
 ## Supported Image File Formats
 
