@@ -1,3 +1,8 @@
+## 0.4.0
+Added
+- "Force remove first page" option in Options menu
+  - To be used in cases where the first page of the bundle can sometimes get wrapped by LaTeX, creating an extra blank page at the start of the PDF
+
 ## 0.3.2
 Fixed
 - Error retrieving caption when image is missing the metadata field

@@ -47,7 +47,9 @@ class App:
         optsMenu = Menu(menubar, tearoff=False)
         
         self.normalizeSize = BooleanVar()
+        self.removeFirstPage = BooleanVar()
         optsMenu.add_checkbutton(label="Normalize image sizes", variable=self.normalizeSize, onvalue=True, offvalue=False)
+        optsMenu.add_checkbutton(label="Force remove first page", variable=self.removeFirstPage, onvalue=True, offvalue=False)
 
         # Reset config sub-menu
         resetMenu = Menu(optsMenu, tearoff=False)
@@ -157,7 +159,9 @@ class App:
                     self.normalizeSize.set(bundlejson["normalizeImages"])
                 if "defaultScale" in bundlejson:
                     self.defaultScale.set(bundlejson["defaultScale"])
-                
+                if "removeFirstPage" in bundlejson:
+                    self.removeFirstPage.set(bundlejson["removeFirstPage"])
+                    
                 for oldFile in files:
                     oldFile.destroy()
                 
@@ -203,6 +207,7 @@ class App:
                     "outputName": self.outputFileName.get(),
                     "normalizeImages": self.normalizeSize.get(),
                     "defaultScale": self.defaultScale.get(),
+                    "removeFirstPage": self.removeFirstPage.get(),
                     "files": [im.toJson() for im in self.fileList.files]
                 }
                 with open(bundle, "w") as exportFile:
@@ -374,7 +379,11 @@ class App:
             
         with open(texSource, "r") as source:
             latexSource = source.read()
-
+            if self.removeFirstPage.get():
+                preamble = "\\usepackage{atbegshi}% http://ctan.org/pkg/atbegshi\n\\AtBeginDocument{\\AtBeginShipoutNext{\\AtBeginShipoutDiscard}}\n"
+            else:
+                preamble = ""
+            latexSource = latexSource.replace("%PREAMBLE%", preamble)
             latexSource = latexSource.replace("%PAR_SPACING%", str(self.parSpacing.get()))
             latexSource = latexSource.replace("%ARGS%", "\\newpage\n".join(texArgs))
             source.close()
