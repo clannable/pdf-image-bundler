@@ -256,7 +256,10 @@ class ImageEntry(ttk.Frame):
         self._sidebarSize = DoubleVar(value=sidebar)
         if not caption:
             info = IPTCInfo(self._file)
-            self._caption = info['caption/abstract'].decode("utf-8") if info["caption/abstract"] else ""
+            try:
+                self._caption = info['caption/abstract'].decode("utf-8")
+            except:
+                self._caption = ""
         else:
             self._caption = caption
         self.resolution = Resolution.fromFilePath(file)

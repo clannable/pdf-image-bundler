@@ -1,3 +1,7 @@
+## 0.3.2
+Fixed
+- Error retrieving caption when image is missing the metadata field
+
 ## 0.3.1
 Added
 - Keyboard shortcuts for saving (CTRL+S), opening (CTRL+O) bundles  
