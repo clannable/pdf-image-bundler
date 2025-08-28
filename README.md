@@ -33,13 +33,13 @@ Screenshot is out of date, will update eventually.
 python -m venv venv
 ```
 
-2. Activate virutal environment
+2. Activate virtual environment
 ```sh
-# for cmd
+# Windows - cmd
 venv\Scripts\activate.bat
-# for powershell
+# Windows - PowerShell
 venv\Scripts\Activate.ps1
-# for linux/mac
+# Linux/Mac
 source venv/bin/activate
 ```
 
@@ -49,10 +49,31 @@ pip install -r requirements.txt
 ```
 
 4. Install LaTeX packages
+
+The following packages will need to be installed to render PDF files:
+- fontspec
+- fontname
+- textpos
+- geometry
+- pagesel
+
+### MiKTeX  
 ```sh
-# TODO: Add mintex/texlive command for installing packages
+# Windows
+mixtex.exe packages install fontspec fontname textpos geometry
+# Linux
+mixtex packages instsall fontspec fontname textpos geometry
 ```
 
+### TeXLive
+
+```sh
+# Windows:
+tlmgr.exe install fontspec fontname textpos geometry
+
+# Linux:
+tlmgr install fontspec fontname textpos geometry
+```
 5. Execute main python script
 
 ```sh
@@ -67,7 +88,10 @@ The graphics library used to render the PDF files only supports the following im
 - PNG
 - JPEG
   
-LaTeX does not support WebP or JFIF files. In order to include them in your PDF:
-- For WebP files, use the [WebP converter tools](https://developers.google.com/speed/webp) to convert to PNG (changing the file extension is not enough)
-- For JFIF files, simply change the extension to .jpeg or .jpg
+LaTeX does not support WebP or JFIF files. They must first be converted to either PNG or JPEG.
+  
+For WebP files, use Google's [WebP converter tools](https://developers.google.com/speed/webp) to convert to PNG. Changing the file extension is not enough.  
+**Note: This may lead to issues with image quality or wrong colors in the rendered PDF, especially if the "Force remove first page" option is enabled.**
+  
+For JFIF files, simply change the extension to .jpeg or .jpg
 
