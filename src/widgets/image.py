@@ -241,9 +241,10 @@ class ImageEntry(ttk.Frame):
             list: ImageList, 
             file: str, 
             layout: PageLayout | str = PageLayout.IMAGE_ONLY, 
-            caption = "", 
+            caption = None, 
             scale = 1.0, 
             page = None,
+            resolution: str = None,
             # normalizeExclude: bool = False, 
             sidebar = 3.0,
             sidebarPosition = None):      
@@ -254,7 +255,7 @@ class ImageEntry(ttk.Frame):
             layout = PageLayout[layout]
         self._layout = IntVar(value=layout.value)   
         self._sidebarSize = DoubleVar(value=sidebar)
-        if not caption:
+        if caption is None:
             info = IPTCInfo(self._file)
             try:
                 self._caption = info['caption/abstract'].decode("utf-8")
@@ -262,7 +263,11 @@ class ImageEntry(ttk.Frame):
                 self._caption = ""
         else:
             self._caption = caption
-        self.resolution = Resolution.fromFilePath(file)
+        if resolution is None:
+            self.resolution = Resolution.fromFilePath(file)
+        else:
+            self.resolution = Resolution.fromString(resolution)
+            
         self._scale = DoubleVar(value = scale)
                 
         f = ttk.Frame(self)
@@ -360,6 +365,7 @@ class ImageEntry(ttk.Frame):
             "layout": self.layout.name,
             "caption": self._caption,
             "page": self.page.get(),
+            "resolution": str(self.resolution),
             "sidebar": self._sidebarSize.get(),
             "sidebarPosition": self.sidebarPosition.get()
         }

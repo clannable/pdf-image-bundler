@@ -1,5 +1,6 @@
 from enum import Enum
 import PIL.Image    
+import re
 
 class Orientation(Enum):
     PORTRAIT = 0
@@ -29,6 +30,8 @@ class Resolution(object):
     def __iter__(self):
         return tuple((self.width, self.height))
     
+    def __str__(self):
+        return f"{self.width}x{self.height}"
     def toTuple(self):
         return (round(self.width, 2), round(self.height, 2))
     
@@ -44,6 +47,15 @@ class Resolution(object):
             res = Resolution.fromImage(im)
             im.close()
         return res
+    
+    @staticmethod
+    def fromString(res: str) -> Resolution:
+        m = re.search("(\d+\.\d+)x(\d+\.\d+)", res)
+        if m:
+            return Resolution(float(m.group(1)), float(m.group(2)))
+        else:
+            return None
+        
     
     def normalize(self, width: float, height: float) -> Resolution:
         scale = 1

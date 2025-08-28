@@ -1,3 +1,11 @@
+## 0.4.1
+Added
+- Base image resolutions now saved in bundles
+  - Speeds up bundle loading times by not having to load image files to get the resolution
+Modified
+- Removed custom font settings from LaTeX template file (for now)
+- Changed package used to remove first page to *pagesel*
+
 ## 0.4.0
 Added
 - "Force remove first page" option in Options menu

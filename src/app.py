@@ -380,7 +380,7 @@ class App:
         with open(texSource, "r") as source:
             latexSource = source.read()
             if self.removeFirstPage.get():
-                preamble = "\\usepackage{atbegshi}\n\\AtBeginDocument{\\AtBeginShipoutNext{\\AtBeginShipoutDiscard}}\n"
+                preamble = "\\usepackage[2-]{pagesel}"
             else:
                 preamble = ""
             latexSource = latexSource.replace("%PREAMBLE%", preamble)
