@@ -18,7 +18,6 @@ Additional features
 - Better look and feel
 
 ![UI window](./docs/window3.jpg)
-Screenshot is out of date, will update eventually. 
 
 ## Requirements
 
