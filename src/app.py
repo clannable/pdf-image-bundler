@@ -223,17 +223,22 @@ class App:
             self.outputDir.set("")
             self.outputFileName.set("")
             self.useSourceDir.set(False)
+            self.defaultScale.set(1.0)
+            self.parSpacing.set(6)
             self.outputFileName.set("output")
             
     def resetFiles(self):
         if messagebox.askyesno("Reset Files List", "Remove all selected files?"):
             self.fileList.clear()
+            
     def resetAll(self):
         if messagebox.askyesno("Reset All Settings", "Reset all settings and clear selected files?"):
             self.fileList.clear()
             self.outputDir.set("")
             self.outputFileName.set("")
             self.useSourceDir.set(False)
+            self.defaultScale.set(1.0)
+            self.parSpacing.set(6)
             self.outputFileName.set("output")
     
     def scaleAllImages(self):
@@ -263,7 +268,7 @@ class App:
             self.moveSelectedFile(index)
     
     def selectOutputDir(self):
-        outputdir = filedialog.askdirectory(parent=self.root, title="Select output folder", mustexist=True, initialdir=self.lastOpened)
+        outputdir = filedialog.askdirectory(parent=self.root, title="Select output folder", mustexist=True, initialdir=self.outputDir.get() or self.lastOpened)
         self.outputDir.set(outputdir)
         
     def onGeneratePdf(self):
@@ -307,21 +312,31 @@ class App:
             files, outDir, outFile
         ))
         thread.run()
+        # self.generate_pdf(files, outDir, outFile)
         
     def generate_pdf(self, files: list[ImageEntry], outDir, outFile):
         tempFiles, tempDir = [], tempfile.mkdtemp()            
         entries: list[tuple[str, ImageEntry]] = []
         minWidth, minHeight = None, None
-        texSource = os.path.join(os.getcwd(), "src", "latex", "images-to-pdf-caption.tex")
+        texSource = os.path.join("latex", "images-to-pdf-caption.tex")
 
         self.status.set("Resizing & copying images...")
         self.statusLbl.update()
             
         for i, entry in enumerate(files):
-            tempFilePath = os.path.join(tempDir, str(i) + os.path.splitext(entry.filePath)[1])
+            tempFilePath = os.path.join(tempDir, "%04d%s" % (i, os.path.splitext(entry.filePath)[1]))
             
             try:
-                shutil.copyfile(entry.filePath, tempFilePath)
+                scale = entry.getImageScale()
+                if scale < 1.0:
+                    with PIL.Image.open(entry.filePath) as im:
+                        width, height = im.size
+                        im_rs = im.resize((int(width * scale), int(height*scale)))
+                        im_rs.save(tempFilePath)
+                        im_rs.close()
+                        im.close()
+                else:
+                    shutil.copyfile(entry.filePath, tempFilePath)
                 tempFiles.append(tempFilePath)
                 if self.normalizeSize.get():
                     res = entry.getResolution()
@@ -342,7 +357,6 @@ class App:
             imgSizer = "width=\\pdfpagewidth" 
             entry: ImageEntry = i[1]
             res = entry.getResolution()
-            orientation = res.getOrientation()
             layout = entry.layout
             if self.normalizeSize.get():
                 (width, height) = res.normalize(minWidth, minHeight).toTuple()
@@ -395,10 +409,11 @@ class App:
             texOutput.write(latexSource)
             texOutput.close()
 
-        cmd = "xelatex {0}/output.tex -halt-on-error -quiet -output-directory {0}".format(tempDir.replace('\\', '/'))
+        cmd = "xelatex {0}/output.tex -quiet -output-directory {0}".format(tempDir.replace('\\', '/'))
         try:
             self.status.set("Generating pdf file...")
             self.statusLbl.update()
+                
             result = subprocess.call(cmd)
             if result != 0:
                 raise Exception("latex error")
@@ -420,4 +435,7 @@ class App:
             messagebox.showerror(message=f"Failed to generate PDF: {e}")
             self.status.set("")
         finally:
-            shutil.rmtree(tempDir)
+            try:
+                shutil.rmtree(tempDir)
+            except Exception:
+                pass

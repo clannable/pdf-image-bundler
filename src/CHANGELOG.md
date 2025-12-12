@@ -1,3 +1,11 @@
+## 0.4.2
+Added
+- Image file size and dimensions displayed in list items
+- Added spec file for generating exe bundle using pyinstaller
+  
+Fixed
+- Default image scale, paragraph spacing are properly reset by the "Reset > Output settings" and "Reset > Reset all settings" menu options.
+
 ## 0.4.1
 Added
 - Base image resolutions now saved in bundles

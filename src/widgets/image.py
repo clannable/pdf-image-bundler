@@ -5,7 +5,7 @@ from tktooltip import ToolTip
 from typing import Callable
 from enum import Enum
 import PIL.Image
-
+import logging.config
 import os
 import subprocess
 import platform
@@ -14,6 +14,12 @@ from ..utils import Resolution, Orientation
 from .caption import EditCaptionDialog
 
 from iptcinfo3 import IPTCInfo
+
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': True
+})
+
 # LAYOUT_ICONS = {
 #     "caption_sidebar": PhotoImage(file=os.path.join(os.getcwd(), "src", "assets", "sidebar.png")),
 #     "full_page": PhotoImage(file=os.path.join(os.getcwd(), "src", "assets", "fullpage.png"))
@@ -45,7 +51,7 @@ class ImageEntry(ttk.Frame):
         pass
 
 class ImageList(ttk.Frame):
-    
+    _lastOpenedDir = None
     _files: list[ImageEntry] = []
     _widgets: list[ttk.Widget] = []
     
@@ -100,11 +106,13 @@ class ImageList(ttk.Frame):
         
     def onAddFiles(self, index=None):
         selectedFiles = filedialog.askopenfilenames(parent=self,
+            initialdir=self._lastOpenedDir,
             title="Select images to add", 
             filetypes=[("Image files", "*.png;*.jpg;*.jpeg;")], 
             multiple=True,
         )
         if selectedFiles:
+            self._lastOpenedDir = os.path.dirname(selectedFiles[0])
             for (i, file) in enumerate(selectedFiles):
                 self.createEntry(file, )
         
@@ -206,6 +214,7 @@ class ImageEntry(ttk.Frame):
     _sidebarSize: DoubleVar
     _scale: DoubleVar
     resolution: Resolution
+    _size: tuple[int]
     
     class MoveControl(object):
         tooltip: ToolTip = None
@@ -244,6 +253,7 @@ class ImageEntry(ttk.Frame):
             caption = None, 
             scale = 1.0, 
             page = None,
+            size: str = None,
             resolution: str = None,
             # normalizeExclude: bool = False, 
             sidebar = 3.0,
@@ -264,9 +274,15 @@ class ImageEntry(ttk.Frame):
         else:
             self._caption = caption
         if resolution is None:
-            self.resolution = Resolution.fromFilePath(file)
+            with PIL.Image.open(file) as image:
+                self.resolution = Resolution.fromImage(image)
+                self._size = image.size
         else:
             self.resolution = Resolution.fromString(resolution)
+        
+        if size:
+            size_sp = size.split("x")
+            self._size = (int(x) for x in size_sp)
             
         self._scale = DoubleVar(value = scale)
                 
@@ -323,9 +339,17 @@ class ImageEntry(ttk.Frame):
         self.expBtn.pack(side=LEFT)
         ToolTip(self.expBtn, msg="View in File Explorer", delay=0.5)
         
-        self.captionBtn = ttk.Button(f2, text="Edit Caption", command=self.editCaption, state="disabled")
-        self.captionBtn.pack(side=LEFT, padx=10)
-        ttk.Label(f2, text="(%.2fin x %.2fin)" % self.resolution.toTuple()).pack(side=RIGHT)
+        self.captionBtn = ttk.Button(layoutFrm, text="Edit Caption", command=self.editCaption, state="disabled")
+        self.captionBtn.grid(row=0, column=2, padx=5)
+        units = ["B", "KB", "MB", "GB"]
+        units_ptr = 0
+        size_bytes = os.path.getsize(file)
+        while size_bytes > 1000:
+            size_bytes = size_bytes / 1000
+            units_ptr += 1
+            
+        ttk.Label(f2, text="%.1f %s" % (size_bytes, units[units_ptr])).pack(side=LEFT, padx=10)
+        ttk.Label(f2, text="%dpx x %dpx (%.2fin x %.2fin)" % (*self._size, *self.resolution.toTuple())).pack(side=RIGHT)
         
         f2.grid(row=5, column=0, columnspan=6, sticky=(W, S))
         listControls = ttk.Frame(self)
@@ -362,6 +386,7 @@ class ImageEntry(ttk.Frame):
         return {
             "file": self._file,
             "scale": self._scale.get(),
+            "size": "x".join(self._size),
             "layout": self.layout.name,
             "caption": self._caption,
             "page": self.page.get(),
