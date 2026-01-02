@@ -213,6 +213,7 @@ class ImageEntry(ttk.Frame):
     _dialog: Toplevel = None
     _sidebarSize: DoubleVar
     _scale: DoubleVar
+    _useDefaultScale: BooleanVar
     resolution: Resolution
     _size: tuple[int]
     
@@ -254,6 +255,7 @@ class ImageEntry(ttk.Frame):
             scale = 1.0, 
             page = None,
             size: str = None,
+            useDefaultScale: bool = True,
             resolution: str = None,
             # normalizeExclude: bool = False, 
             sidebar = 3.0,
@@ -265,6 +267,7 @@ class ImageEntry(ttk.Frame):
             layout = PageLayout[layout]
         self._layout = IntVar(value=layout.value)   
         self._sidebarSize = DoubleVar(value=sidebar)
+        self._useDefaultScale = BooleanVar(value=useDefaultScale)
         if caption is None:
             info = IPTCInfo(self._file)
             try:
@@ -325,7 +328,13 @@ class ImageEntry(ttk.Frame):
         ttk.OptionMenu(self.sf, self.sidebarPosition, sidebarPosition, BOTTOM, RIGHT).grid(row=0, column=5)
 
         ttk.Label(f, text="Image Scale").grid(row=3, column=0, columnspan=2, sticky=(W))
-        ttk.Entry(f, textvariable=self._scale, width=5).grid(row=3, column=2, sticky=(W, E))
+        scaleFrm = ttk.Frame(f)
+        self.scaleEntry = ttk.Entry(scaleFrm, textvariable=self._scale, width=5, state="disabled")
+        if not self._useDefaultScale.get():
+            self.scaleEntry.configure(state="normal")
+        self.scaleEntry.pack(side=LEFT)
+        ttk.Checkbutton(scaleFrm, command=self.onToggleDefaultScale, variable=self._useDefaultScale, text="Use Default").pack(side=LEFT, padx=2)
+        scaleFrm.grid(row=3, column=2, sticky=(W, E))
         layoutFrm = ttk.Frame(f)
         ttk.Radiobutton(layoutFrm, variable=self._layout, text="Image Only", value=PageLayout.IMAGE_ONLY.value, command=self.onLayoutChange).grid(row=0, column=0, padx=5)
         ttk.Radiobutton(layoutFrm, variable=self._layout, text="Caption Sidebar", value=PageLayout.CAPTION_SIDEBAR.value, command=self.onLayoutChange).grid(row=0, column=1, padx=5) 
@@ -360,9 +369,9 @@ class ImageEntry(ttk.Frame):
         moveUpBtn = ttk.Button(listControls, text='\u2191', width=2, command=lambda : self._list.moveEntryUp(self))
         moveUpBtn.grid(row=1, column=0)
         moveDownBtn = ttk.Button(listControls, text='\u2193',  width=2, command=lambda : self._list.moveEntryDown(self))
-        moveDownBtn.grid(row=2, column=0)
+        moveDownBtn.grid(row=3, column=0)
         floorBtn = ttk.Button(listControls, text='\u2193\u2193', width=2, command=lambda : self._list.floorEntry(self))
-        floorBtn.grid(row=3, column=0)
+        floorBtn.grid(row=4, column=0)
         
         self.moveControls = [
             self.MoveControl(ceilBtn, "Move to top", lambda : self._index > 0),
@@ -372,7 +381,7 @@ class ImageEntry(ttk.Frame):
         ]      
         
         if self.layout == PageLayout.CAPTION_SIDEBAR:
-            self.sf.grid(row=3, column=3, columnspan=2, sticky=(W))
+            self.sf.grid(row=2, column=0, columnspan=3, sticky=(W))
             self.captionBtn.configure(state="normal")
             
         self.grid(row=self._index, column=0, **IMAGE_SETTINGS)
@@ -386,6 +395,7 @@ class ImageEntry(ttk.Frame):
         return {
             "file": self._file,
             "scale": self._scale.get(),
+            "useDefaultScale": self._useDefaultScale.get(),
             "size": "x".join(self._size),
             "layout": self.layout.name,
             "caption": self._caption,
@@ -405,11 +415,17 @@ class ImageEntry(ttk.Frame):
         layout = PageLayout(self._layout.get())
         if layout == PageLayout.CAPTION_SIDEBAR:
             self.captionBtn.configure(state="normal", cursor="hand2")
-            self.sf.grid(row=3, column=3, columnspan=2, sticky=(W))
+            self.sf.grid(row=2, column=0, columnspan=3, sticky=(W))
         else:
             self.captionBtn.configure(state="disabled", cursor=None)
             self.sf.grid_forget()
     
+    def onToggleDefaultScale(self):
+        if self._useDefaultScale.get():
+            self.scaleEntry.configure(state="disabled")
+        else:
+            self.scaleEntry.configure(state="normal")
+            
     def onRemove(self):
         if messagebox.askyesno("Remove Image?", "Are you sure you want to remove this image?"):
             self._list.removeEntry(self)
@@ -433,7 +449,7 @@ class ImageEntry(ttk.Frame):
         return self._file
     
     def getImageScale(self) -> float:
-        return self._scale.get()
+        return self._scale.get() if not self._useDefaultScale.get() else None
     
     def getCaption(self) -> str:
         return self._caption

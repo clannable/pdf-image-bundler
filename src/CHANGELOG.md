@@ -1,3 +1,7 @@
+## 0.5.0
+Added
+- Added checkbox toggle for using the Default Image Scale value. The value of the Default Image Scale field be applied to all checked files without having to manually set their scales or use the "Set all images scale to..." command.
+
 ## 0.4.2
 Added
 - Image file size and dimensions displayed in list items

@@ -327,7 +327,7 @@ class App:
             tempFilePath = os.path.join(tempDir, "%04d%s" % (i, os.path.splitext(entry.filePath)[1]))
             
             try:
-                scale = entry.getImageScale()
+                scale = entry.getImageScale() or self.defaultScale.get()
                 if scale < 1.0:
                     with PIL.Image.open(entry.filePath) as im:
                         width, height = im.size
