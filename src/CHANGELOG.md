@@ -2,6 +2,9 @@
 Added
 - Added checkbox toggle for using the Default Image Scale value. The value of the Default Image Scale field be applied to all checked files without having to manually set their scales or use the "Set all images scale to..." command.
 
+Fixed
+- Fixed placement of sidebar options when the "Caption Sidebar" radio button is selected.
+
 ## 0.4.2
 Added
 - Image file size and dimensions displayed in list items
